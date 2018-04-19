@@ -417,11 +417,11 @@ int main(int argc, char* argv[])
 
     // load an object file
     bool fileload;
-    fileload = object->loadFromFile("GlobenFake.obj");
+    fileload = object->loadFromFile("GlobenFake2.obj");
     if(!fileload)
     {
         #if defined(_MSVC)
-        fileload = object->loadFromFile("GlobenFake.obj");
+        fileload = object->loadFromFile("GlobenFake2.obj");
         #endif
     }
     if (!fileload)
@@ -514,7 +514,9 @@ int main(int argc, char* argv[])
     object->setStiffness(0.2 * maxStiffness, true);
 
     // define some haptic friction properties
-    object->setFriction(1.0, 0.2, true);
+    object->setFriction(0.0, 0.0, true);
+
+    object->setShowEdges(false);
 
     // enable display list for faster graphic rendering
     object->setUseDisplayList(true);
@@ -918,7 +920,7 @@ void updateHaptics(void)
             selectedObject->setLocalTransform(parent_T_object);
 
             // set zero forces when manipulating objects
-            tool->setDeviceGlobalForce(0.0, 0.0, -20);
+            tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
 
             tool->initialize();
         }
