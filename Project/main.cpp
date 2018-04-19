@@ -54,6 +54,7 @@ cDirectionalLight *light;
 
 // a virtual object
 vector<cMultiMesh*> objects;
+cMultiMesh* object;
 
 cMesh* texturePlane;
 
@@ -399,14 +400,15 @@ int main(int argc, char* argv[])
     double maxStiffness	= hapticDeviceInfo.m_maxLinearStiffness / workspaceScaleFactor;
 
     // create a virtual mesh
-    globen = new cMultiMesh();
-    objects.push_back(globen);
+    object = new cMultiMesh();
+    objects.push_back(object);
 
+    /*
     for(int i = 0; i < objects.size; i++) {
         world->addChild(objects[i]);
-    }
+    }*/
 
-    world->addChild(globen);
+    world->addChild(object);
 
 
     // add object to world
@@ -415,11 +417,11 @@ int main(int argc, char* argv[])
 
     // load an object file
     bool fileload;
-    fileload = objects[0]->loadFromFile("globen.obj");
-    if(!fileload && !fileload1)
+    fileload = object->loadFromFile("GlobenFake.obj");
+    if(!fileload)
     {
         #if defined(_MSVC)
-        fileload = objects[0]->loadFromFile("globen.obj");
+        fileload = object->loadFromFile("GlobenFake.obj");
         #endif
     }
     if (!fileload)
@@ -441,6 +443,7 @@ int main(int argc, char* argv[])
         object->scale(1.0 / size);
     }
 */
+    /*
     //MESH
     texturePlane = new cMesh();
 
@@ -484,12 +487,12 @@ int main(int argc, char* argv[])
     texturePlane->m_material->setTextureLevel(1.0);
     texturePlane->m_material->setHapticTriangleSides(true, false);
 
-
+    */
 
 
     //ANCHOR
 
-    object->setWireMode(true, true);
+    object->setWireMode(false, true);
 
     cMaterial m;
     m.setBlueCadet();
