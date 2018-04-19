@@ -13,6 +13,7 @@
 #include "chai3d.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
+#include <vector>
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -52,8 +53,7 @@ cCamera* camera;
 cDirectionalLight *light;
 
 // a virtual object
-cMultiMesh* object;
-cMultiMesh* screw;
+vector<cMultiMesh*> objects;
 
 cMesh* texturePlane;
 
@@ -294,6 +294,7 @@ int main(int argc, char* argv[])
 
     camera->setSphericalDeg(1.0,    // spherical coordinate radius
                             65,     // spherical coordinate polar angle
+
                             20);    // spherical coordinate azimuth angle
     */
     // position and orient the camera
@@ -398,8 +399,14 @@ int main(int argc, char* argv[])
     double maxStiffness	= hapticDeviceInfo.m_maxLinearStiffness / workspaceScaleFactor;
 
     // create a virtual mesh
-    object = new cMultiMesh();
-    screw = new cMultiMesh();
+    globen = new cMultiMesh();
+    objects.push_back(globen);
+
+    for(int i = 0; i < objects.size; i++) {
+        world->addChild(objects[i]);
+    }
+
+    world->addChild(globen);
 
 
     // add object to world
@@ -407,15 +414,12 @@ int main(int argc, char* argv[])
     //world->addChild(screw);
 
     // load an object file
-    bool fileload1;
     bool fileload;
-    fileload1 = object->loadFromFile("Anchor5.obj");
-    fileload = screw->loadFromFile("Screw.obj");
+    fileload = objects[0]->loadFromFile("globen.obj");
     if(!fileload && !fileload1)
     {
         #if defined(_MSVC)
-        fileload1 = object->loadFromFile("Anchor5.obj");
-        fileload = screw->loadFromFile("Screw.obj");
+        fileload = objects[0]->loadFromFile("globen.obj");
         #endif
     }
     if (!fileload)
@@ -544,58 +548,6 @@ int main(int argc, char* argv[])
     object->setShowEdges(showEdges);
     object->setShowNormals(showNormals);
 
-    //SCREW
-
-    screw->setWireMode(false, true);
-
-    cMaterial s;
-    s.setBlueCadet();
-    screw->setMaterial(m);
-
-    // disable culling so that faces are rendered on both sides
-    screw->setUseCulling(false);
-
-    // compute a boundary box
-    screw->computeBoundaryBox(true);
-
-    // show/hide boundary box
-    screw->setShowBoundaryBox(false);
-
-    // compute collision detection algorithm
-    screw->createAABBCollisionDetector(toolRadius);
-
-    // define a default stiffness for the screw
-    screw->setStiffness(0.2 * maxStiffness, true);
-
-    // define some haptic friction properties
-    screw->setFriction(0.1, 2.0, true);
-
-    // enable display list for faster graphic rendering
-    screw->setUseDisplayList(true);
-
-    // center screw in scene
-    screw->setLocalPos(-1.0 * screw->getBoundaryCenter());
-
-    // rotate screw in scene
-    //screw->rotateExtrinsicEulerAnglesDeg(0, 0, 90, C_EULER_ORDER_XYZ);
-
-
-    // compute all edges of screw for which adjacent triangles have more than 40 degree angle
-    screw->computeAllEdges(0);
-
-    // set line width of edges and color
-    cColorf colorEdges2;
-    colorEdges.setBlack();
-    screw->setEdgeProperties(1, colorEdges2);
-
-    // set normal properties for display
-    cColorf colorNormals2;
-    colorNormals.setOrangeTomato();
-    screw->setNormalsProperties(0.01, colorNormals2);
-
-    // display options
-    screw->setShowTriangles(showTriangles);
-    screw->setShowEdges(showEdges);
 
     //--------------------------------------------------------------------------
     // WIDGETS
