@@ -3,7 +3,11 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    model.cpp
+
+HEADERS += \
+    model.h
 
 win32{
     CHAI3D = D:/chai3d-3.2.0

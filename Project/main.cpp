@@ -14,6 +14,11 @@
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <vector>
+#include <sys/types.h>
+#include <dirent.h>
+#include <string>
+//------------------------------------------------------------------------------
+#include "model.h"
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -53,8 +58,10 @@ cCamera* camera;
 cDirectionalLight *light;
 
 // a virtual object
-vector<cMultiMesh*> objects;
-cMultiMesh* object;
+cMultiMesh* currentObject;
+Model* currentModel;
+// create an array of models
+Model * objects[20];
 
 cMesh* texturePlane;
 
@@ -148,6 +155,24 @@ void updateHaptics(void);
 // this function closes the application
 void close(void);
 
+
+// Count the number of models for our array.
+int numberOfFiles(void) {
+    DIR *dp;
+    int numberOfFiles;
+    struct dirent *ep;
+    dp = opendir ("./models");
+
+    if(dp != NULL) {
+        while(ep = readdir (dp)) {
+            numberOfFiles++;
+        }
+        (void) closedir (dp);
+    } else {
+        perror ("Could not open directory");
+    }
+    return (numberOfFiles-2);
+}
 
 //==============================================================================
 /*
@@ -399,38 +424,99 @@ int main(int argc, char* argv[])
     // stiffness properties
     double maxStiffness	= hapticDeviceInfo.m_maxLinearStiffness / workspaceScaleFactor;
 
-    // create a virtual mesh
-    object = new cMultiMesh();
-    objects.push_back(object);
+    int models = numberOfFiles();
 
-    /*
-    for(int i = 0; i < objects.size; i++) {
-        world->addChild(objects[i]);
-    }*/
+    for(int i = 0; i < models; i++) {
+        cMultiMesh* object = new cMultiMesh();
+        world->addChild(object);
 
-    world->addChild(object);
+        //Load an object file
+        bool fileload;
+        ostringstream stringStream;
+        stringStream << "models/";
+        stringStream << (i+1);
+        stringStream << ".obj";
+        string fileString = stringStream.str();
+        fileload = object->loadFromFile(fileString);
+        if(!fileload)
+        {
+            #if defined(_MSVC)
+            fileload = object->loadFromFile(fileString);
+            #endif
+        }
+        if (!fileload)
+        {
+            cout << "Error - 3D Model failed to load correctly" << endl;
+            close();
+            return (-1);
+        }
+        //ANCHOR
+
+        object->setWireMode(false, true);
+
+        cMaterial m;
+        m.setBlueCadet();
+        object->setMaterial(m);
+
+        // disable culling so that faces are rendered on both sides
+        object->setUseCulling(false);
+
+        // compute a boundary box
+        object->computeBoundaryBox(true);
+
+        // show/hide boundary box
+        object->setShowBoundaryBox(false);
+
+        // compute collision detection algorithm
+        object->createAABBCollisionDetector(toolRadius);
+
+        // define a default stiffness for the object
+        object->setStiffness(0.2 * maxStiffness, true);
+
+        // define some haptic friction properties
+        object->setFriction(0.0, 0.0, true);
+
+        object->setShowEdges(false);
+
+        // enable display list for faster graphic rendering
+        object->setUseDisplayList(true);
+
+        cVector3d position = object->getBoundaryCenter();
+        position.x(0);
+        position.y(-0.10);
+        position.z(-0.10);
 
 
-    // add object to world
-    //world->addChild(object);
-    //world->addChild(screw);
 
-    // load an object file
-    bool fileload;
-    fileload = object->loadFromFile("GlobenFake2.obj");
-    if(!fileload)
-    {
-        #if defined(_MSVC)
-        fileload = object->loadFromFile("GlobenFake2.obj");
-        #endif
+        // center object in scene
+        object->setLocalPos(position);
+
+        // rotate object in scene
+        //object->rotateExtrinsicEulerAnglesDeg(0, 0, 90, C_EULER_ORDER_XYZ);
+
+
+        // compute all edges of object for which adjacent triangles have more than 40 degree angle
+        object->computeAllEdges(0);
+
+        // set line width of edges and color
+        cColorf colorEdges;
+        colorEdges.setBlack();
+        object->setEdgeProperties(1, colorEdges);
+
+        // set normal properties for display
+        cColorf colorNormals;
+        colorNormals.setOrangeTomato();
+        object->setNormalsProperties(0.01, colorNormals);
+
+        // display options
+        object->setShowTriangles(showTriangles);
+        object->setShowEdges(showEdges);
+        object->setShowNormals(showNormals);
+
+        objects[i] = new Model(object, 40, 40, 40);
     }
-    if (!fileload)
-    {
-        cout << "Error - 3D Model failed to load correctly" << endl;
-        close();
-        return (-1);
-    }
 
+    currentObject = objects[0]->getObject();
 
 /*
     // get dimensions of object
@@ -490,68 +576,6 @@ int main(int argc, char* argv[])
     */
 
 
-    //ANCHOR
-
-    object->setWireMode(false, true);
-
-    cMaterial m;
-    m.setBlueCadet();
-    object->setMaterial(m);
-
-    // disable culling so that faces are rendered on both sides
-    object->setUseCulling(false);
-
-    // compute a boundary box
-    object->computeBoundaryBox(true);
-
-    // show/hide boundary box
-    object->setShowBoundaryBox(false);
-
-    // compute collision detection algorithm
-    object->createAABBCollisionDetector(toolRadius);
-
-    // define a default stiffness for the object
-    object->setStiffness(0.2 * maxStiffness, true);
-
-    // define some haptic friction properties
-    object->setFriction(0.0, 0.0, true);
-
-    object->setShowEdges(false);
-
-    // enable display list for faster graphic rendering
-    object->setUseDisplayList(true);
-
-    cVector3d position = object->getBoundaryCenter();
-    position.x(0);
-    position.y(-0.10);
-    position.z(-0.10);
-
-
-
-    // center object in scene
-    object->setLocalPos(position);
-
-    // rotate object in scene
-    //object->rotateExtrinsicEulerAnglesDeg(0, 0, 90, C_EULER_ORDER_XYZ);
-
-
-    // compute all edges of object for which adjacent triangles have more than 40 degree angle
-    object->computeAllEdges(0);
-
-    // set line width of edges and color
-    cColorf colorEdges;
-    colorEdges.setBlack();
-    object->setEdgeProperties(1, colorEdges);
-
-    // set normal properties for display
-    cColorf colorNormals;
-    colorNormals.setOrangeTomato();
-    object->setNormalsProperties(0.01, colorNormals);
-
-    // display options
-    object->setShowTriangles(showTriangles);
-    object->setShowEdges(showEdges);
-    object->setShowNormals(showNormals);
 
 
     //--------------------------------------------------------------------------
@@ -660,24 +684,24 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
     // option - show/hide texture
     else if (a_key == GLFW_KEY_1)
     {
-        bool useTexture = object->getUseTexture();
-        object->setUseTexture(!useTexture);
+        bool useTexture = currentObject->getUseTexture();
+        currentObject->setUseTexture(!useTexture);
     }
 
     // option - enable/disable wire mode
     else if (a_key == GLFW_KEY_2)
     {
-        bool useWireMode = object->getWireMode();
-        object->setWireMode(!useWireMode, true);
+        bool useWireMode = currentObject->getWireMode();
+        currentObject->setWireMode(!useWireMode, true);
     }
 
     // option - show/hide collision detection tree
     else if (a_key == GLFW_KEY_3)
     {
         cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        bool show = object->getShowCollisionDetector();
-        object->setShowCollisionDetector(!show, true);
+        currentObject->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
+        bool show = currentObject->getShowCollisionDetector();
+        currentObject->setShowCollisionDetector(!show, true);
     }
 
     // option - decrease depth level of collision tree
@@ -686,8 +710,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
         collisionTreeDisplayLevel--;
         if (collisionTreeDisplayLevel < 0) { collisionTreeDisplayLevel = 0; }
         cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        object->setShowCollisionDetector(true, true);
+        currentObject->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
+        currentObject->setShowCollisionDetector(true, true);
     }
 
     // option - increase depth level of collision tree
@@ -695,8 +719,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
     {
         collisionTreeDisplayLevel++;
         cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        object->setShowCollisionDetector(true, true);
+        currentObject->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
+        currentObject->setShowCollisionDetector(true, true);
     }
 
     // option - save screenshot to file
@@ -712,21 +736,21 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
     else if (a_key == GLFW_KEY_T)
     {
         showTriangles = !showTriangles;
-        object->setShowTriangles(showTriangles);
+        currentObject->setShowTriangles(showTriangles);
     }
 
     // option - show/hide edges
     else if (a_key == GLFW_KEY_E)
     {
         showEdges = !showEdges;
-        object->setShowEdges(showEdges);
+        currentObject->setShowEdges(showEdges);
     }
 
     // option - show/hide normals
     else if (a_key == GLFW_KEY_N)
     {
         showNormals = !showNormals;
-        object->setShowNormals(showNormals);
+        currentObject->setShowNormals(showNormals);
     }
 
     // option - toggle fullscreen
@@ -884,7 +908,7 @@ void updateHaptics(void)
             }
             else
             {
-                selectedObject = object;
+                selectedObject = currentObject;
             }
 
             // get transformation from object
