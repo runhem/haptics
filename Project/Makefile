@@ -710,6 +710,7 @@ main.o: main.cpp /opt/chai3d/3.2.0/src/chai3d.h \
 		/opt/chai3d/3.2.0/src/resources/CShaderIsosurface-RGBA8.h \
 		/opt/chai3d/3.2.0/extras/GLFW/include/GLFW/glfw3.h \
 		Assignment.h \
+		TemplateWorld.h \
 		1_HelloWorld.h \
 		2_ReadDevicePosition.h \
 		3_BasicForceEffects.h \

@@ -34,8 +34,15 @@
 //---------------------------------------------------------------------------
 #include "chai3d.h"
 #include <GLFW/glfw3.h>
+#include <json/json.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <fstream>
+//--------------------
 
 #include "Assignment.h"
+
+#include "TemplateWorld.h"
 
 #include "1_HelloWorld.h"
 #include "2_ReadDevicePosition.h"
