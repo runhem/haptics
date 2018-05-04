@@ -11,12 +11,14 @@
 
 //------------------------------------------------------------------------------
 #include "chai3d.h"
+#include <json/json.h>
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <sys/types.h>
 #include <dirent.h>
-#include <string>
+#include <iostream>
+#include <fstream>
 //------------------------------------------------------------------------------
 #include "model.h"
 //------------------------------------------------------------------------------
@@ -60,8 +62,8 @@ cDirectionalLight *light;
 // a virtual object
 cMultiMesh* currentObject;
 Model* currentModel;
-// create an array of models
-Model * objects[20];
+// create a vector of models
+vector<Model> objects;
 
 cMesh* texturePlane;
 
@@ -424,19 +426,21 @@ int main(int argc, char* argv[])
     // stiffness properties
     double maxStiffness	= hapticDeviceInfo.m_maxLinearStiffness / workspaceScaleFactor;
 
-    int models = numberOfFiles();
+    // Load config from Json
+    ifstream ifs("./config.json", ifstream::binary);
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(ifs, root);
+    const Json::Value& configs = root["config"];
 
-    for(int i = 0; i < models; i++) {
+
+    for(int i = 0; i < configs.size(); i = i + 1) {
         cMultiMesh* object = new cMultiMesh();
         world->addChild(object);
 
         //Load an object file
         bool fileload;
-        ostringstream stringStream;
-        stringStream << "models/";
-        stringStream << (i+1);
-        stringStream << ".obj";
-        string fileString = stringStream.str();
+        std::string fileString = configs[i].get("model", "ASCII").asString();
         fileload = object->loadFromFile(fileString);
         if(!fileload)
         {
@@ -513,10 +517,13 @@ int main(int argc, char* argv[])
         object->setShowEdges(showEdges);
         object->setShowNormals(showNormals);
 
-        objects[i] = new Model(object, 40, 40, 40);
+        objects.push_back(Model(object, 40, 40, 40));
+
+        //object->setEnabled(false, true);
     }
 
-    currentObject = objects[0]->getObject();
+    currentObject = objects[0].getObject();
+    //currentObject->setEnabled(true, true);
 
 /*
     // get dimensions of object
@@ -753,6 +760,12 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
         currentObject->setShowNormals(showNormals);
     }
 
+    // option - show/hide normals
+    else if (a_key == GLFW_KEY_K)
+    {
+        objects[1].object->setEnabled(false,true);
+    }
+
     // option - toggle fullscreen
     else if (a_key == GLFW_KEY_F)
     {
@@ -908,7 +921,7 @@ void updateHaptics(void)
             }
             else
             {
-                selectedObject = currentObject;
+                //selectedObject = currentObject;
             }
 
             // get transformation from object

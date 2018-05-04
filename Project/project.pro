@@ -47,6 +47,7 @@ unix {
     INCLUDEPATH += $${CHAI3D}/external/Eigen
     INCLUDEPATH += $${CHAI3D}/external/glew/include
     INCLUDEPATH += $${CHAI3D}/extras/GLFW/include
+    INCLUDEPATH += ./include/dist
 
     DEFINES += LINUX
     QMAKE_CXXFLAGS += -std=c++0x
@@ -66,6 +67,7 @@ unix {
     LIBS += -lXcursor
     LIBS += -lXrandr
     LIBS += -lXinerama
+    LIBS += -ljsoncpp
 }
 
 
