@@ -1,23 +1,74 @@
+//===========================================================================
 /*
- *
- *
- *    DH2660 Haptic Programming spring 2017
- *    Lab 2 Template directly based on Chai3D Example 21.
- *
- *    Distribution license: BSD (e.g. free to use for
- *    most purposes, see end of file)
- *
- */
 
-//------------------------------------------------------------------------------
+	CS277 - Experimental Haptics
+	Winter 2010, Stanford University
+
+
+	You may use this program as a boilerplate for starting your homework
+	assignments.  Use CMake (www.cmake.org) on the CMakeLists.txt file to
+	generate project files for the development tool of your choice.  The
+	CHAI3D library directory (chai3d-2.1.0) should be installed as a sibling
+	directory to the one containing this project.
+
+
+	These files are meant to be helpful should you encounter difficulties
+	setting up a working CHAI3D project.  However, you are not required to
+	use them for your homework -- you may start from anywhere you'd like.
+
+
+	\author    Francois Conti & Sonny Chan
+	\date      January 2010
+	*/
+//===========================================================================
+// This define is (maybe) needed for some gcc5 reason
+// http://stackoverflow.com/questions/33394934/converting-std-cxx11string-to-stdstring
+//#define _GLIBCXX_USE_CXX11_ABI 0
+
+//---------------------------------------------------------------------------
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <string.h>
+#include <iostream>
+
+//---------------------------------------------------------------------------
 #include "chai3d.h"
-//------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
-#include <vector>
-//------------------------------------------------------------------------------
+
+#include "Assignment.h"
+
+#include "1_HelloWorld.h"
+#include "2_ReadDevicePosition.h"
+#include "3_BasicForceEffects.h"
+#include "4_HapticWall.h"
+#include "5_MagneticEffect.h"
+#include "6_HapticSphere.h"
+
+
 using namespace chai3d;
 using namespace std;
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+
+
+//---------------------------------------------------------------------------
+// DECLARED CONSTANTS
+//---------------------------------------------------------------------------
+// Initial size (width/height) in pixels of the display window
+const int WINDOW_SIZE_W = 600;
+const int WINDOW_SIZE_H = 600;
+
+/*
+
+// Mouse menu options (right button)
+const int OPTION_FULLSCREEN = 1;
+const int OPTION_WINDOWDISPLAY = 2;
+
+
+// Maximum number of haptic devices supported in this demo
+const int MAX_DEVICES = 8;
+
+*/
 
 //------------------------------------------------------------------------------
 // GENERAL SETTINGS
@@ -39,62 +90,57 @@ bool fullscreen = false;
 bool mirroredDisplay = false;
 
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 // DECLARED VARIABLES
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+// A list of all available assignments
+std::vector<Assignment*> assignments;
+volatile size_t currentAssignment = 0;
 
-// a world that contains all objects of the virtual environment
-cWorld* world;
 
-// a camera to render the world in the window display
+// A world that contains all objects of the virtual environment
+cWorld* world = 0;
+
+
+// A camera that renders the world in a window display
 cCamera* camera;
 
-// a light source to illuminate the objects in the world
+
+// A light source to illuminate the objects in the virtual scene
 cDirectionalLight *light;
 
-// a virtual object
-vector<cMultiMesh*> objects;
-cMultiMesh* object;
 
-cMesh* texturePlane;
+// Width and height of the current window display
+int displayW = WINDOW_SIZE_W;
+int displayH = WINDOW_SIZE_H;
 
-// a haptic device handler
+
+// A haptic device handler
 cHapticDeviceHandler* handler;
 
-// a pointer to the current haptic device
-cGenericHapticDevicePtr hapticDevice;
 
-// a virtual tool representing the haptic device in the scene
-cToolCursor* tool;
+// A pointer to the first haptic device detected on this computer
+cGenericHapticDevicePtr hapticDevice = 0;
 
-// a colored background
-cBackground* background;
 
-// a font for rendering text
-cFontPtr font;
+// Labels to show haptic device position, update rate and assignment text
+cLabel* positionLabel = 0;
+cLabel* rateLabel = 0;
+cLabel* assignmentLabel = 0;
+double assignmentLabelWidth;
+double rateEstimate = 0;
 
-// a label to display the rate [Hz] at which the simulation is running
-cLabel* labelRates;
 
-// a flag that indicates if the haptic simulation is currently running
+// A clock measuring the total time
+cPrecisionClock clockTotal;
+
+
+// Status of the main simulation haptics loop
 bool simulationRunning = false;
 
-// a flag that indicates if the haptic simulation has terminated
-bool simulationFinished = true;
 
-// display options
-bool showEdges = true;
-bool showTriangles = true;
-bool showNormals = false;
-
-// display level for collision tree
-int collisionTreeDisplayLevel = 0;
-
-// a frequency counter to measure the simulation graphic rate
-cFrequencyCounter freqCounterGraphics;
-
-// a frequency counter to measure the simulation haptic rate
-cFrequencyCounter freqCounterHaptics;
+// Has exited haptics simulation thread
+bool simulationFinished = false;
 
 // haptic thread
 cThread* hapticsThread;
@@ -111,18 +157,29 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
-// root resource path
-string resourceRoot;
+// a small sphere (cursor) representing the haptic device
+cShapeSphere* cursor;
 
+// a font for rendering text
+cFontPtr font;
 
-//------------------------------------------------------------------------------
-// DECLARED MACROS
-//------------------------------------------------------------------------------
+// a label to display the haptic device model
+cLabel* labelHapticDeviceModel;
 
-// convert to resource path
-#define RESOURCE_PATH(p)    (char*)((resourceRoot+string(p)).c_str())
+// a label to display the position [m] of the haptic device
+cLabel* labelHapticDevicePosition;
 
+// a global variable to store the position [m] of the haptic device
+//cVector3d hapticDevicePosition;
 
+// a label to display the rate [Hz] at which the simulation is running
+cLabel* labelRates;
+
+// a frequency counter to measure the simulation graphic rate
+cFrequencyCounter freqCounterGraphics;
+
+// a frequency counter to measure the simulation haptic rate
+cFrequencyCounter freqCounterHaptics;
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -136,9 +193,6 @@ void errorCallback(int error, const char* a_description);
 // callback when a key is pressed
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
 
-// callback to render graphic scene
-void updateGraphics(void);
-
 // this function renders the scene
 void updateGraphics(void);
 
@@ -148,58 +202,62 @@ void updateHaptics(void);
 // this function closes the application
 void close(void);
 
+// Reset the scene with a new scene according to 'assignmentId'
+void reset(size_t assignmentId);
+//===========================================================================
 
-//==============================================================================
 /*
-    DEMO:   21-object.cpp
+	This application illustrates the use of the haptic device handler
+	"cHapticDevicehandler" to access haptic devices connected to the computer.
 
-    This demonstration loads a 3D mesh file by using the file loader
-    functionality of the \ref cMultiMesh class. A finger-proxy algorithm is
-    used to render the forces. Take a look at this example to understand the
-    different functionalities offered by the tool force renderer.
 
-    In the main haptics loop function  "updateHaptics()" , the position
-    of the haptic device is retrieved at each simulation iteration.
-    The interaction forces are then computed and sent to the device.
-    Finally, a simple dynamics model is used to simulate the behavior
-    of the object.
+	In this example the application opens an OpenGL window and displays a
+	3D cursor for the first device found. If the operator presses the device
+	user button, the color of the cursor changes accordingly.
+
+	In the main haptics loop function  "updateHaptics()" , the position and
+	user switch status of the device are retrieved at each simulation iteration.
+	This information is then used to update the position and color of the
+	cursor. A force is then commanded to the haptic device to attract the
+	end-effector towards the device origin.
 */
-//==============================================================================
+//===========================================================================
+
+
 
 int main(int argc, char* argv[])
 {
-    //--------------------------------------------------------------------------
-    // INITIALIZATION
-    //--------------------------------------------------------------------------
 
-    cout << endl;
-    cout << "-----------------------------------" << endl;
-    cout << "CHAI3D" << endl;
-    cout << "Demo: 21-object" << endl;
-    cout << "Copyright 2003-2016" << endl;
-    cout << "-----------------------------------" << endl << endl << endl;
-    cout << "Keyboard Options:" << endl << endl;
-    cout << "[1] - Texture   (ON/OFF)" << endl;
-    cout << "[2] - Wireframe (ON/OFF)" << endl;
-    cout << "[3] - Collision tree (ON/OFF)" << endl;
-    cout << "[4] - Increase collision tree display depth" << endl;
-    cout << "[5] - Decrease collision tree display depth" << endl;
-    cout << "[s] - Save screenshot to file" << endl;
-    cout << "[e] - Enable/Disable display of edges" << endl;
-    cout << "[t] - Enable/Disable display of triangles" << endl;
-    cout << "[n] - Enable/Disable display of normals" << endl;
-    cout << "[f] - Enable/Disable full screen mode" << endl;
-    cout << "[m] - Enable/Disable vertical mirroring" << endl;
-    cout << "[q] - Exit application" << endl;
-    cout << endl << endl;
+	//-----------------------------------------------------------------------
+	// INITIALIZATION
+	//-----------------------------------------------------------------------
+	std::cout << std::endl;
+	std::cout << "Based on:" << std::endl;
+	std::cout << "-----------------------------------" << std::endl;
+	std::cout << "CS277 - Experimental Haptics" << std::endl;
+	std::cout << "Homework Boilerplate Application" << std::endl;
+	std::cout << "January 2010, Stanford University" << std::endl;
+    std::cout << "and 01-mydevice.cpp from Chai 3.2" << std::endl;
+    std::cout << "-----------------------------------" << std::endl;
+	std::cout << std::endl << std::endl;
 
-    // parse first arg to try and locate resources
-    resourceRoot = string(argv[0]).substr(0,string(argv[0]).find_last_of("/\\")+1);
+	//-----------------------------------------------------------------------
+	// ASSIGNMENTS
+	//-----------------------------------------------------------------------
+
+	// Load the available assignment scenes
+	assignments.push_back(new HelloWorld());
+	assignments.push_back(new ReadDevicePosition());
+	assignments.push_back(new BasicForceEffects());
+	assignments.push_back(new HapticWall());
+	assignments.push_back(new MagneticEffect());
+	assignments.push_back(new HapticSphere());
 
 
-    //--------------------------------------------------------------------------
+
+    //-----------------------------------------------------------------------
     // OPEN GL - WINDOW DISPLAY
-    //--------------------------------------------------------------------------
+    //-----------------------------------------------------------------------
 
     // initialize GLFW library
     if (!glfwInit())
@@ -223,6 +281,7 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
+
     // set active stereo mode
     if (stereoMode == C_STEREO_ACTIVE)
     {
@@ -234,7 +293,7 @@ int main(int argc, char* argv[])
     }
 
     // create display context
-    window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
+    window = glfwCreateWindow(w, h, "KTH First 3D Haptics Lab", NULL, NULL);
     if (!window)
     {
         cout << "failed to create window" << endl;
@@ -271,6 +330,38 @@ int main(int argc, char* argv[])
     }
 #endif
 
+	//-----------------------------------------------------------------------
+	// HAPTIC DEVICES / TOOLS
+	//-----------------------------------------------------------------------
+
+    // Create a haptic device handler
+    handler = new cHapticDeviceHandler();
+
+    // get a handle to the first haptic device
+    handler->getDevice(hapticDevice, 0);
+
+    // open a connection to haptic device
+    hapticDevice->open();
+
+    // calibrate device (if necessary)
+    hapticDevice->calibrate();
+
+    // retrieve information about the current haptic device
+    cHapticDeviceInfo info = hapticDevice->getSpecifications();
+
+    // display a reference frame if haptic device supports orientations
+    if (info.m_sensedRotation == true)
+    {
+        // display reference frame
+        cursor->setShowFrame(true);
+
+        // set the size of the reference frame
+        cursor->setFrameSize(0.05);
+    }
+
+    // if the device has a gripper, enable the gripper to simulate a user switch
+    hapticDevice->setEnableGripperUserSwitch(true);
+
 
     //--------------------------------------------------------------------------
     // WORLD - CAMERA - LIGHTING
@@ -286,272 +377,37 @@ int main(int argc, char* argv[])
     camera = new cCamera(world);
     world->addChild(camera);
 
-
-    /*
-    // define a basis in spherical coordinates for the camera
-    camera->setSphericalReferences(cVector3d(0.8, 0.0, 0.5),    // origin
-                                   cVector3d(0.0, 0.0, 1.0),    // zenith direction
-                                   cVector3d(1.0, 0.0, 0.0));   // azimuth direction
-
-    camera->setSphericalDeg(1.0,    // spherical coordinate radius
-                            65,     // spherical coordinate polar angle
-
-                            20);    // spherical coordinate azimuth angle
-    */
     // position and orient the camera
-    camera->set( cVector3d (0.4, 0.0, 0.2),    // camera position (eye)
-                 cVector3d (0.0, 0.0, 0.0),    // lookat position (target)
+    camera->set( cVector3d (0.5, 0.0, 0.0),    // camera position (eye)
+                 cVector3d (0.0, 0.0, 0.0),    // look at position (target)
                  cVector3d (0.0, 0.0, 1.0));   // direction of the (up) vector
 
     // set the near and far clipping planes of the camera
-    // anything in front or behind these clipping planes will not be rendered
-    camera->setClippingPlanes(0.01, 100);
+    camera->setClippingPlanes(0.01, 10.0);
 
     // set stereo mode
     camera->setStereoMode(stereoMode);
 
     // set stereo eye separation and focal length (applies only if stereo is enabled)
-    camera->setStereoEyeSeparation(0.03);
-    camera->setStereoFocalLength(1.5);
+    camera->setStereoEyeSeparation(0.01);
+    camera->setStereoFocalLength(0.5);
 
     // set vertical mirrored display mode
     camera->setMirrorVertical(mirroredDisplay);
 
-    // enable multi-pass rendering to handle transparent objects
-    camera->setUseMultipassTransparency(true);
-
-    // create a light source
+    // create a directional light source
     light = new cDirectionalLight(world);
 
-    // attach light to camera
-    camera->addChild(light);
+    // insert light source inside world
+    world->addChild(light);
 
     // enable light source
     light->setEnabled(true);
 
-    // define the direction of the light beam
-    light->setDir(-3.0,-0.5, 0.0);
-
-    // set lighting conditions
-    light->m_ambient.set(0.4f, 0.4f, 0.4f);
-    light->m_diffuse.set(0.8f, 0.8f, 0.8f);
-    light->m_specular.set(1.0f, 1.0f, 1.0f);
+    // define direction of light beam
+    light->setDir(-1.0, 0.0, 0.0);
 
 
-    //--------------------------------------------------------------------------
-    // HAPTIC DEVICES / TOOLS
-    //--------------------------------------------------------------------------
-
-    // create a haptic device handler
-    handler = new cHapticDeviceHandler();
-
-    // get access to the first available haptic device found
-    handler->getDevice(hapticDevice, 0);
-
-    // retrieve information about the current haptic device
-    cHapticDeviceInfo hapticDeviceInfo = hapticDevice->getSpecifications();
-
-    // create a tool (cursor) and insert into the world
-    tool = new cToolCursor(world);
-    world->addChild(tool);
-
-    // connect the haptic device to the virtual tool
-    tool->setHapticDevice(hapticDevice);
-
-    // if the haptic device has a gripper, enable it as a user switch
-    hapticDevice->setEnableGripperUserSwitch(true);
-
-    // define the radius of the tool (sphere)
-    double toolRadius = 0.008;
-
-    // define a radius for the tool
-    tool->setRadius(toolRadius);
-
-    // hide the device sphere. only show proxy.
-    tool->setShowContactPoints(true, false);
-
-    // create a white cursor
-    tool->m_hapticPoint->m_sphereProxy->m_material->setWhite();
-
-    // map the physical workspace of the haptic device to a larger virtual workspace.
-    tool->setWorkspaceRadius(0.1);
-
-    // oriente tool with camera
-    tool->setLocalRot(camera->getLocalRot());
-
-    // haptic forces are enabled only if small forces are first sent to the device;
-    // this mode avoids the force spike that occurs when the application starts when
-    // the tool is located inside an object for instance.
-    tool->setWaitForSmallForce(true);
-
-    // start the haptic tool
-    tool->start();
-
-
-    //--------------------------------------------------------------------------
-    // CREATE OBJECT
-    //--------------------------------------------------------------------------
-
-    // read the scale factor between the physical workspace of the haptic
-    // device and the virtual workspace defined for the tool
-    double workspaceScaleFactor = tool->getWorkspaceScaleFactor();
-
-    // stiffness properties
-    double maxStiffness	= hapticDeviceInfo.m_maxLinearStiffness / workspaceScaleFactor;
-
-    // create a virtual mesh
-    object = new cMultiMesh();
-    objects.push_back(object);
-
-    /*
-    for(int i = 0; i < objects.size; i++) {
-        world->addChild(objects[i]);
-    }*/
-
-    world->addChild(object);
-
-
-    // add object to world
-    //world->addChild(object);
-    //world->addChild(screw);
-
-    // load an object file
-    bool fileload;
-    fileload = object->loadFromFile("GlobenFake2.obj");
-    if(!fileload)
-    {
-        #if defined(_MSVC)
-        fileload = object->loadFromFile("GlobenFake2.obj");
-        #endif
-    }
-    if (!fileload)
-    {
-        cout << "Error - 3D Model failed to load correctly" << endl;
-        close();
-        return (-1);
-    }
-
-
-/*
-    // get dimensions of object
-    object->computeBoundaryBox(true);
-    double size = cSub(object->getBoundaryMax(), object->getBoundaryMin()).length();
-
-    // resize object to screen
-    if (size > 0.001)
-    {
-        object->scale(1.0 / size);
-    }
-*/
-    /*
-    //MESH
-    texturePlane = new cMesh();
-
-
-    cCreatePlane(texturePlane, 0.3, 0.3);
-
-    // create collision detector
-    texturePlane->createAABBCollisionDetector(toolRadius);
-
-    // add object to world
-    world->addChild(texturePlane);
-
-    texturePlane->m_texture = cTexture2d::create();
-    bool fileload3;
-    fileload3 = texturePlane->m_texture->loadFromFile("test.jpg");
-        if (!fileload3)
-        {
-            #if defined(_MSVC)
-            fileload3 = texturePlane->m_texture->loadFromFile("test.jpg");
-            #endif
-        }
-        if (!fileload3)
-        {
-            cout << "Error - Texture image failed to load correctly." << endl;
-            close();
-            return (-1);
-        }
-    // enable texture mapping
-    texturePlane->setUseTexture(true);
-    texturePlane->m_material->setWhite();
-
-    // create normal map from texture data
-    cNormalMapPtr normalMap0 = cNormalMap::create();
-    normalMap0->createMap(texturePlane->m_texture);
-    texturePlane->m_normalMap = normalMap0;
-
-    // set haptic properties
-    texturePlane->m_material->setStiffness(0.8 * maxStiffness);
-    texturePlane->m_material->setStaticFriction(0.3);
-    texturePlane->m_material->setDynamicFriction(0.2);
-    texturePlane->m_material->setTextureLevel(1.0);
-    texturePlane->m_material->setHapticTriangleSides(true, false);
-
-    */
-
-
-    //ANCHOR
-
-    object->setWireMode(false, true);
-
-    cMaterial m;
-    m.setBlueCadet();
-    object->setMaterial(m);
-
-    // disable culling so that faces are rendered on both sides
-    object->setUseCulling(false);
-
-    // compute a boundary box
-    object->computeBoundaryBox(true);
-
-    // show/hide boundary box
-    object->setShowBoundaryBox(false);
-
-    // compute collision detection algorithm
-    object->createAABBCollisionDetector(toolRadius);
-
-    // define a default stiffness for the object
-    object->setStiffness(0.2 * maxStiffness, true);
-
-    // define some haptic friction properties
-    object->setFriction(0.0, 0.0, true);
-
-    object->setShowEdges(false);
-
-    // enable display list for faster graphic rendering
-    object->setUseDisplayList(true);
-
-    cVector3d position = object->getBoundaryCenter();
-    position.x(0);
-    position.y(-0.10);
-    position.z(-0.10);
-
-
-
-    // center object in scene
-    object->setLocalPos(position);
-
-    // rotate object in scene
-    //object->rotateExtrinsicEulerAnglesDeg(0, 0, 90, C_EULER_ORDER_XYZ);
-
-
-    // compute all edges of object for which adjacent triangles have more than 40 degree angle
-    object->computeAllEdges(0);
-
-    // set line width of edges and color
-    cColorf colorEdges;
-    colorEdges.setBlack();
-    object->setEdgeProperties(1, colorEdges);
-
-    // set normal properties for display
-    cColorf colorNormals;
-    colorNormals.setOrangeTomato();
-    object->setNormalsProperties(0.01, colorNormals);
-
-    // display options
-    object->setShowTriangles(showTriangles);
-    object->setShowEdges(showEdges);
-    object->setShowNormals(showNormals);
 
 
     //--------------------------------------------------------------------------
@@ -561,27 +417,32 @@ int main(int argc, char* argv[])
     // create a font
     font = NEW_CFONTCALIBRI20();
 
+    // create a label to display the haptic device model
+    labelHapticDeviceModel = new cLabel(font);
+    camera->m_frontLayer->addChild(labelHapticDeviceModel);
+    labelHapticDeviceModel->setText(info.m_modelName);
+
+    // create a label to display the position of haptic device
+    labelHapticDevicePosition = new cLabel(font);
+    camera->m_frontLayer->addChild(labelHapticDevicePosition);
+    labelHapticDevicePosition->setText("info.m_modelName");
+
     // create a label to display the haptic and graphic rate of the simulation
     labelRates = new cLabel(font);
-    labelRates->m_fontColor.setBlack();
     camera->m_frontLayer->addChild(labelRates);
 
-    // create a background
-    background = new cBackground();
-    camera->m_backLayer->addChild(background);
-
-    // set background properties
-    background->setCornerColors(cColorf(0.95f, 0.95f, 0.95f),
-                                cColorf(0.95f, 0.95f, 0.95f),
-                                cColorf(0.80f, 0.80f, 0.80f),
-                                cColorf(0.80f, 0.80f, 0.80f));
 
 
-    //--------------------------------------------------------------------------
-    // START SIMULATION
-    //--------------------------------------------------------------------------
+    //-----------------------------------------------------------------------
+	// START SIMULATION
+	//-----------------------------------------------------------------------
+	// Initialize the world with assignment 0
+	reset(0);
 
-    // create a thread which starts the main haptics rendering loop
+	// Simulation in now running
+	simulationRunning = true;
+
+    // Create a thread which starts the main haptics rendering loop
     hapticsThread = new cThread();
     hapticsThread->start(updateHaptics, CTHREAD_PRIORITY_HAPTICS);
 
@@ -624,14 +485,83 @@ int main(int argc, char* argv[])
     // exit
     return 0;
 }
+//---------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
+
+void reset(size_t assignmentId)
+{
+	// Deactivate the old scene
+	assignments[currentAssignment]->setInitialized(false);
+	currentAssignment = assignmentId;
+
+	// Delete the old world and create a new one
+    delete world;
+	world = new cWorld();
+	world->setBackgroundColor(0.0, 0.0, 0.0);
+
+	// Create a camera and insert it into the virtual world
+	camera = new cCamera(world);
+	world->addChild(camera);
+
+	// Position and oriente the camera
+	camera->set(cVector3d(0.2, 0.0, 0.0),    // camera position (eye)
+                cVector3d(0.0, 0.0, 0.0),    // lookat position (target)
+                cVector3d(0.0, 0.0, 1.0));   // direction of the "up" vector
+
+
+	// Set the near and far clipping planes of the camera
+	// anything in front/behind these clipping planes will not be rendered
+	camera->setClippingPlanes(0.01, 10.0);
+
+	// Create a light source and attach it to the camera
+    light = new cDirectionalLight(world);
+	camera->addChild(light);                   // attach light to camera
+	light->setEnabled(true);                   // enable light source
+    light->setLocalPos(cVector3d(2.0, 0.5, 1.0));  // position the light source
+	light->setDir(cVector3d(-2.0, 0.5, 1.0));  // define the direction of the light beam
+
+	// Create a label that shows the haptic loop update rate
+    cFontPtr font = NEW_CFONTCALIBRI20();
+    rateLabel = new cLabel(font);
+    camera->m_frontLayer->addChild(rateLabel);
+
+    // Create a label that shows the current position of the device
+    positionLabel = new cLabel(font);
+    positionLabel->setLocalPos(8, 8, 0);
+    camera->m_frontLayer->addChild(positionLabel);
+
+    // Create a label that shows the current assignment name
+    assignmentLabel = new cLabel(font);
+    camera->m_frontLayer->addChild(assignmentLabel);
+
+	// Initialize the current assignment
+    assignments[currentAssignment]->initialize(world, camera);
+
+	// Update the assignment label
+    assignmentLabel->setText(assignments[currentAssignment]->getName());
+
+	// Precalculate width to make it centered
+    assignmentLabelWidth = assignmentLabel->m_font->getTextWidth(assignmentLabel->getText(),0.01);
+    assignments[currentAssignment]->setInitialized(true);
+
+
+	// Restart the clock measuring total time elapsed
+	clockTotal.start(true);
+}
+//---------------------------------------------------------------------------
+
 
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 {
     // update window size
     width  = a_width;
     height = a_height;
+
+    // update position of label
+    //labelHapticDeviceModel->setLocalPos(20, height - 40, 0);
+
+    // update position of label
+    //labelHapticDevicePosition->setLocalPos(20, height - 60, 0);
 }
 
 //------------------------------------------------------------------------------
@@ -641,7 +571,6 @@ void errorCallback(int a_error, const char* a_description)
     cout << "Error: " << a_description << endl;
 }
 
-//------------------------------------------------------------------------------
 
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
 {
@@ -657,76 +586,32 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
         glfwSetWindowShouldClose(a_window, GLFW_TRUE);
     }
 
-    // option - show/hide texture
+
+
+    // Key 1 - 6 corresponding to an existing assignment
     else if (a_key == GLFW_KEY_1)
     {
-        bool useTexture = object->getUseTexture();
-        object->setUseTexture(!useTexture);
+        reset(0);
     }
-
-    // option - enable/disable wire mode
     else if (a_key == GLFW_KEY_2)
     {
-        bool useWireMode = object->getWireMode();
-        object->setWireMode(!useWireMode, true);
+        reset(1);
     }
-
-    // option - show/hide collision detection tree
     else if (a_key == GLFW_KEY_3)
     {
-        cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        bool show = object->getShowCollisionDetector();
-        object->setShowCollisionDetector(!show, true);
+        reset(2);
     }
-
-    // option - decrease depth level of collision tree
     else if (a_key == GLFW_KEY_4)
     {
-        collisionTreeDisplayLevel--;
-        if (collisionTreeDisplayLevel < 0) { collisionTreeDisplayLevel = 0; }
-        cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        object->setShowCollisionDetector(true, true);
+        reset(3);
     }
-
-    // option - increase depth level of collision tree
     else if (a_key == GLFW_KEY_5)
     {
-        collisionTreeDisplayLevel++;
-        cColorf color = cColorf(1.0, 0.0, 0.0);
-        object->setCollisionDetectorProperties(collisionTreeDisplayLevel, color, true);
-        object->setShowCollisionDetector(true, true);
+        reset(4);
     }
-
-    // option - save screenshot to file
-    else if (a_key == GLFW_KEY_S)
+    else if (a_key == GLFW_KEY_6)
     {
-        cImagePtr image = cImage::create();
-        camera->copyImageBuffer(image);
-        image->saveToFile("screenshot.png");
-        cout << "> Saved screenshot to file.       \r";
-    }
-
-    // option - show/hide triangles
-    else if (a_key == GLFW_KEY_T)
-    {
-        showTriangles = !showTriangles;
-        object->setShowTriangles(showTriangles);
-    }
-
-    // option - show/hide edges
-    else if (a_key == GLFW_KEY_E)
-    {
-        showEdges = !showEdges;
-        object->setShowEdges(showEdges);
-    }
-
-    // option - show/hide normals
-    else if (a_key == GLFW_KEY_N)
-    {
-        showNormals = !showNormals;
-        object->setShowNormals(showNormals);
+        reset(5);
     }
 
     // option - toggle fullscreen
@@ -766,7 +651,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
     }
 }
 
-//------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------
 
 void close(void)
 {
@@ -777,7 +663,7 @@ void close(void)
     while (!simulationFinished) { cSleepMs(100); }
 
     // close haptic device
-    tool->stop();
+    hapticDevice->close();
 
     // delete resources
     delete hapticsThread;
@@ -785,7 +671,8 @@ void close(void)
     delete handler;
 }
 
-//------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------
 
 void updateGraphics(void)
 {
@@ -793,13 +680,36 @@ void updateGraphics(void)
     // UPDATE WIDGETS
     /////////////////////////////////////////////////////////////////////
 
+
+
+    if (assignments[currentAssignment]->isInitialized()){
+		assignments[currentAssignment]->updateGraphics();
+
+        // update position display (using global variable set in haptic loop)
+        //labelHapticDevicePosition->setText(assignments[currentAssignment]->hapticDevicePosition.str(3));
+        //position = position * 1000.0; // Convert to mm
+        //sprintf(buffer, "Device position: (%.2lf, %.2lf, %.2lf) mm", position.x(), position.y(), position.z());
+    }
+
+
+
     // update haptic and graphic rate data
-    labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
+    rateLabel->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
+                        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
 
     // update position of label
-    labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
+    //rateLabel->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
 
+
+    /*
+	// Update the label with the haptic refresh rate
+	char buffer[128];
+	sprintf(buffer, "Haptic rate: %.0lf Hz", rateEstimate);
+    rateLabel->setString(buffer);
+    rateLabel->setLocalPos(displayW - 120, 8, 0);
+*/
+
+    assignmentLabel->setLocalPos(0.5 * (displayW - assignmentLabelWidth), displayH - 20, 0);
 
     /////////////////////////////////////////////////////////////////////
     // RENDER SCENE
@@ -811,195 +721,57 @@ void updateGraphics(void)
     // render world
     camera->renderView(width, height);
 
-    // wait until all GL commands are completed
+    // wait until all OpenGL commands are completed
     glFinish();
 
     // check for any OpenGL errors
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) cout << "Error: " << gluErrorString(err) << endl;
+    GLenum err;
+    err = glGetError();
+    if (err != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(err);
 }
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 
-enum cMode
-{
-    IDLE,
-    SELECTION
-};
 
 void updateHaptics(void)
 {
-    cMode state = IDLE;
-    cGenericObject* selectedObject = NULL;
-    cTransform tool_T_object;
+	// A clock to estimate the haptic simulation loop update rate
+	cPrecisionClock pclock;
+	pclock.setTimeoutPeriodSeconds(1.0);
+	pclock.start(true);
+	int counter = 0;
+	cPrecisionClock frameClock;
+	frameClock.start(true);
 
-    // simulation in now running
-    simulationRunning  = true;
-    simulationFinished = false;
+	// Main haptic simulation loop
+	while (simulationRunning)
+	{
+		if (!hapticDevice)
+			continue;
 
-    // main haptic simulation loop
-    while(simulationRunning)
-    {
-        /////////////////////////////////////////////////////////////////////////
-        // HAPTIC RENDERING
-        /////////////////////////////////////////////////////////////////////////
+		// Total time elapsed since the current assignment started
+		double totalTime = clockTotal.getCurrentTimeSeconds();
 
-        // signal frequency counter
-        freqCounterHaptics.signal(1);
+		// Time elapsed since the previous haptic frame
+		double timeStep = frameClock.getCurrentTimeSeconds();
+		frameClock.start(true);
 
-        // compute global reference frames for each object
-        world->computeGlobalPositions(true);
+		// Update assignment
+		if (assignments[currentAssignment]->isInitialized())
+            assignments[currentAssignment]->updateHaptics(hapticDevice.get(), timeStep, totalTime);
 
-        // update position and orientation of tool
-        tool->updateFromDevice();
+		// Estimate the refresh rate
+		++counter;
+		if (pclock.timeoutOccurred()) {
+			pclock.stop();
+			rateEstimate = counter;
+			counter = 0;
+			pclock.start(true);
+		}
+	}
 
-        // compute interaction forces
-        tool->computeInteractionForces();
-
-
-        /////////////////////////////////////////////////////////////////////////
-        // MANIPULATION
-        /////////////////////////////////////////////////////////////////////////
-
-        // compute transformation from world to tool (haptic device)
-        cTransform world_T_tool = tool->getDeviceGlobalTransform();
-
-        // get status of user switch
-        bool button = tool->getUserSwitch(0);
-
-        //
-        // STATE 1:
-        // Idle mode - user presses the user switch
-        //
-        if ((state == IDLE) && (button == true))
-        {
-            // check if at least one contact has occurred
-            if (tool->m_hapticPoint->getNumCollisionEvents() > 0)
-            {
-                // get contact event
-                cCollisionEvent* collisionEvent = tool->m_hapticPoint->getCollisionEvent(0);
-
-                // get object from contact event
-                selectedObject = collisionEvent->m_object;
-            }
-            else
-            {
-                selectedObject = object;
-            }
-
-            // get transformation from object
-            cTransform world_T_object = selectedObject->getGlobalTransform();
-
-            // compute inverse transformation from contact point to object
-            cTransform tool_T_world = world_T_tool;
-            tool_T_world.invert();
-
-            // store current transformation tool
-            tool_T_object = tool_T_world * world_T_object;
-
-            // update state
-            state = SELECTION;
-        }
-
-
-        //
-        // STATE 2:
-        // Selection mode - operator maintains user switch enabled and moves object
-        //
-        else if ((state == SELECTION) && (button == true))
-        {
-            // compute new transformation of object in global coordinates
-            cTransform world_T_object = world_T_tool * tool_T_object;
-
-            // compute new transformation of object in local coordinates
-            cTransform parent_T_world = selectedObject->getParent()->getLocalTransform();
-            parent_T_world.invert();
-            cTransform parent_T_object = parent_T_world * world_T_object;
-
-            // assign new local transformation to object
-            selectedObject->setLocalTransform(parent_T_object);
-
-            // set zero forces when manipulating objects
-            tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
-
-            tool->initialize();
-        }
-
-        //
-        // STATE 3:
-        // Finalize Selection mode - operator releases user switch.
-        //
-        else
-        {
-            state = IDLE;
-        }
-
-
-        /////////////////////////////////////////////////////////////////////////
-        // FINALIZE
-        /////////////////////////////////////////////////////////////////////////
-
-        // send forces to haptic device
-        tool->applyToDevice();
-    }
-
-    // exit haptics thread
-    simulationFinished = true;
+	// Exit haptics thread
+	simulationFinished = true;
 }
 
-//------------------------------------------------------------------------------
-
-
-
-//==============================================================================
-/*
- *
- *  Example code borrowed from Chai3D library:
-
-    Software License Agreement (BSD License)
-    Copyright (c) 2003-2016, CHAI3D.
-    (www.chai3d.org)
-
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-    * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials provided
-    with the distribution.
-
-    * Neither the name of CHAI3D nor the names of its contributors may
-    be used to endorse or promote products derived from this software
-    without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
-
-    \author    <http://www.chai3d.org>
-    \author    Francois Conti
-    \version   3.2.0 $Rev: 2049 $
-*/
-//==============================================================================
-
-
-
-
-
-
-
+//---------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+{
+	"config":[
+		{
+			"model":"models/GlobenFake.obj",
+			"height": 40,
+			"width": 40,
+			"length": 40
+		},
+		{
+			"model":"models/Screw.obj",
+			"height": 40,
+			"width": 40,
+			"length": 40
+		}
+	]
+}

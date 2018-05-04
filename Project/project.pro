@@ -4,6 +4,10 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp
+HEADERS += 1_HelloWorld.h 4_HapticWall.h Assignment.h 2_ReadDevicePosition.h 5_MagneticEffect.h 3_BasicForceEffects.h 6_HapticSphere.h
+
+MODE = Debug
+#MODE = Release
 
 win32{
     CHAI3D = D:/chai3d-3.2.0
@@ -18,8 +22,9 @@ win32{
     INCLUDEPATH += $${CHAI3D}/extras/GLFW/include
 
     DEPENDPATH += $${CHAI3D}/src
-    LIBS += -L$${CHAI3D}/lib/Release/x64/ -lchai3d -lglu32 -lopengl32 -lwinmm
-    LIBS += -L$${CHAI3D}/extras/GLFW/lib/Release/x64/ -lglfw
+    LIBS += -L$${CHAI3D}/lib/$${MODE}/x64/ -lchai3d
+    LIBS += -lglu32 -lopengl32 -lwinmm
+    LIBS += -L$${CHAI3D}/extras/GLFW/lib/$${MODE}/x64/ -lglfw
     LIBS += -lglu32 -lOpenGl32 -lglu32 -lOpenGl32 -lwinmm -luser32
     LIBS += kernel32.lib
     LIBS += user32.lib
@@ -63,5 +68,7 @@ unix {
     LIBS += -lXrandr
     LIBS += -lXinerama
 }
+
+
 
 
