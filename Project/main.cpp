@@ -44,13 +44,6 @@
 
 #include "TemplateWorld.h"
 
-#include "1_HelloWorld.h"
-#include "2_ReadDevicePosition.h"
-#include "3_BasicForceEffects.h"
-#include "4_HapticWall.h"
-#include "5_MagneticEffect.h"
-#include "6_HapticSphere.h"
-
 
 using namespace chai3d;
 using namespace std;
@@ -252,13 +245,16 @@ int main(int argc, char* argv[])
 	// ASSIGNMENTS
 	//-----------------------------------------------------------------------
 
-	// Load the available assignment scenes
-	assignments.push_back(new HelloWorld());
-	assignments.push_back(new ReadDevicePosition());
-	assignments.push_back(new BasicForceEffects());
-	assignments.push_back(new HapticWall());
-	assignments.push_back(new MagneticEffect());
-	assignments.push_back(new HapticSphere());
+    // Load json
+    ifstream ifs("./config.json", ifstream::binary);
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(ifs, root);
+    const Json::Value &configs = root["config"];
+
+    for(int i = 0; i < configs.size(); i = i + 1) {
+        assignments.push_back(new TemplateWorld(configs[i]));
+    }
 
 
 
@@ -385,12 +381,12 @@ int main(int argc, char* argv[])
     world->addChild(camera);
 
     // position and orient the camera
-    camera->set( cVector3d (0.5, 0.0, 0.0),    // camera position (eye)
-                 cVector3d (0.0, 0.0, 0.0),    // look at position (target)
-                 cVector3d (0.0, 0.0, 1.0));   // direction of the (up) vector
+    camera->set(cVector3d(0.4, 0.0, 0.2),  // camera position (eye)
+                cVector3d(0.0, 0.0, 0.0),  // lookat position (target)
+                cVector3d(0.0, 0.0, 1.0)); // direction of the (up) vector
 
     // set the near and far clipping planes of the camera
-    camera->setClippingPlanes(0.01, 10.0);
+    camera->setClippingPlanes(0.01, 100);
 
     // set stereo mode
     camera->setStereoMode(stereoMode);
@@ -596,31 +592,15 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 
 
     // Key 1 - 6 corresponding to an existing assignment
-    else if (a_key == GLFW_KEY_1)
+    else if (a_key == GLFW_KEY_L)
     {
-        reset(0);
+        if((currentAssignment + 1) == assignments.size()) {
+            reset(0);
+        } else {
+            reset(currentAssignment + 1);
+        }
     }
-    else if (a_key == GLFW_KEY_2)
-    {
-        reset(1);
-    }
-    else if (a_key == GLFW_KEY_3)
-    {
-        reset(2);
-    }
-    else if (a_key == GLFW_KEY_4)
-    {
-        reset(3);
-    }
-    else if (a_key == GLFW_KEY_5)
-    {
-        reset(4);
-    }
-    else if (a_key == GLFW_KEY_6)
-    {
-        reset(5);
-    }
-
+  
     // option - toggle fullscreen
     else if (a_key == GLFW_KEY_F)
     {
@@ -705,8 +685,7 @@ void updateGraphics(void)
                         cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
 
     // update position of label
-    //rateLabel->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
-
+    rateLabel->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
 
     /*
 	// Update the label with the haptic refresh rate
@@ -739,46 +718,123 @@ void updateGraphics(void)
 
 //---------------------------------------------------------------------------
 
+enum cMode
+{
+    IDLE,
+    SELECTION
+};
 
 void updateHaptics(void)
 {
-	// A clock to estimate the haptic simulation loop update rate
-	cPrecisionClock pclock;
-	pclock.setTimeoutPeriodSeconds(1.0);
-	pclock.start(true);
-	int counter = 0;
-	cPrecisionClock frameClock;
-	frameClock.start(true);
+    cMode state = IDLE;
+    cGenericObject *selectedObject = NULL;
+    cTransform tool_T_object;
 
-	// Main haptic simulation loop
-	while (simulationRunning)
-	{
-		if (!hapticDevice)
-			continue;
+    // simulation in now running
+    simulationRunning = true;
+    simulationFinished = false;
 
-		// Total time elapsed since the current assignment started
-		double totalTime = clockTotal.getCurrentTimeSeconds();
+    // main haptic simulation loop
+    while (simulationRunning)
+    {
+        /////////////////////////////////////////////////////////////////////////
+        // HAPTIC RENDERING
+        /////////////////////////////////////////////////////////////////////////
 
-		// Time elapsed since the previous haptic frame
-		double timeStep = frameClock.getCurrentTimeSeconds();
-		frameClock.start(true);
+        // signal frequency counter
+        freqCounterHaptics.signal(1);
 
-		// Update assignment
-		if (assignments[currentAssignment]->isInitialized())
-            assignments[currentAssignment]->updateHaptics(hapticDevice.get(), timeStep, totalTime);
+        // compute global reference frames for each object
+        world->computeGlobalPositions(true);
 
-		// Estimate the refresh rate
-		++counter;
-		if (pclock.timeoutOccurred()) {
-			pclock.stop();
-			rateEstimate = counter;
-			counter = 0;
-			pclock.start(true);
-		}
-	}
+        // update position and orientation of tool
+        tool->updateFromDevice();
 
-	// Exit haptics thread
-	simulationFinished = true;
+        // compute interaction forces
+        tool->computeInteractionForces();
+
+        /////////////////////////////////////////////////////////////////////////
+        // MANIPULATION
+        /////////////////////////////////////////////////////////////////////////
+
+        // compute transformation from world to tool (haptic device)
+        cTransform world_T_tool = tool->getDeviceGlobalTransform();
+
+        // get status of user switch
+        bool button = tool->getUserSwitch(0);
+
+        //
+        // STATE 1:
+        // Idle mode - user presses the user switch
+        //
+        if ((state == IDLE) && (button == true))
+        {
+            // check if at least one contact has occurred
+            if (tool->m_hapticPoint->getNumCollisionEvents() > 0)
+            {
+                // get contact event
+                cCollisionEvent *collisionEvent = tool->m_hapticPoint->getCollisionEvent(0);
+
+                // get object from contact event
+                selectedObject = collisionEvent->m_object;
+            }
+            else
+            {
+                //selectedObject = currentObject;
+            }
+
+            // get transformation from object
+            cTransform world_T_object = selectedObject->getGlobalTransform();
+
+            // compute inverse transformation from contact point to object
+            cTransform tool_T_world = world_T_tool;
+            tool_T_world.invert();
+
+            // store current transformation tool
+            tool_T_object = tool_T_world * world_T_object;
+
+            // update state
+            state = SELECTION;
+        }
+
+        //
+        // STATE 2:
+        // Selection mode - operator maintains user switch enabled and moves object
+        //
+        else if ((state == SELECTION) && (button == true))
+        {
+            // compute new transformation of object in global coordinates
+            cTransform world_T_object = world_T_tool * tool_T_object;
+
+            // compute new transformation of object in local coordinates
+            cTransform parent_T_world = selectedObject->getParent()->getLocalTransform();
+            parent_T_world.invert();
+            cTransform parent_T_object = parent_T_world * world_T_object;
+
+            // assign new local transformation to object
+            selectedObject->setLocalTransform(parent_T_object);
+
+            // set zero forces when manipulating objects
+            tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
+
+            tool->initialize();
+        }
+
+        //
+        // STATE 3:
+        // Finalize Selection mode - operator releases user switch.
+        //
+        else
+        {
+            state = IDLE;
+        }
+
+        /////////////////////////////////////////////////////////////////////////
+        // FINALIZE
+        /////////////////////////////////////////////////////////////////////////
+
+        // send forces to haptic device
+        tool->applyToDevice();
 }
 
 //---------------------------------------------------------------------------

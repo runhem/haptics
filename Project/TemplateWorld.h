@@ -2,19 +2,22 @@
 #define TEMPLATEWORLD_H
 
 #include "Assignment.h"
-
 #include "chai3d.h"
+#include <json/json.h>
 
 class TemplateWorld : public Assignment
 {
 private:
     // A 3D cursor for the haptic device
-    cShapeSphere* m_cursor;
+    cShapeSphere* tool;
 
-    // A line to display velocity of the haptic interface
-    cShapeLine* m_velocityVector;
+	Json::Value json;
+	cMultiMesh *object;
 
-    // Material properties used to render the color of the cursors
+	// A line to display velocity of the haptic interface
+	cShapeLine *m_velocityVector;
+
+	// Material properties used to render the color of the cursors
     cMaterialPtr m_matCursorButtonON;
     cMaterialPtr m_matCursorButtonOFF;
 
@@ -22,7 +25,10 @@ private:
     cLabel* m_debugLabel;
 
 public:
-    virtual std::string getName() const { return "1: Hello World"; }
+	TemplateWorld(Json::Value modelJson) {
+		json = modelJson;
+	}
+    virtual std::string getName() const { return json.get("name", "ASCII"); }
 
 	virtual void initialize(cWorld* world, cCamera* camera);
 
@@ -36,32 +42,15 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 	world->setBackgroundColor(0.0f, 1.0f, 0.0f);
 
 	// Create a cursor with its radius set
-	m_cursor = new cShapeSphere(0.01);
+	tool = new cToolCursor(world);
 	// Add cursor to the world
-	world->addChild(m_cursor);
+	world->addChild(tool);
 
 	// Create a small line to illustrate velocity
     m_velocityVector = new cShapeLine(cVector3d(0, 0, 0), cVector3d(0, 0, 0));
 	// Add line to the world
     world->addChild(m_velocityVector);
 
-	// Here we define the material properties of the cursor when the
-	// user button of the device end-effector is engaged (ON) or released (OFF)
-
-	// A light orange material color
-    m_matCursorButtonOFF = cMaterialPtr(new cMaterial());
-    m_matCursorButtonOFF->m_ambient.set(0.5, 0.2, 0.0);
-    m_matCursorButtonOFF->m_diffuse.set(1.0, 0.5, 0.0);
-    m_matCursorButtonOFF->m_specular.set(1.0, 1.0, 1.0);
-
-	// A blue material color
-    m_matCursorButtonON = cMaterialPtr(new cMaterial());
-    m_matCursorButtonON->m_ambient.set(0.1, 0.1, 0.4);
-    m_matCursorButtonON->m_diffuse.set(0.3, 0.3, 0.8);
-    m_matCursorButtonON->m_specular.set(1.0, 1.0, 1.0);
-
-	// Apply the 'off' material to the cursor
-    m_cursor->m_material = m_matCursorButtonOFF;
 
     // Create a font
     cFontPtr font2 = NEW_CFONTCALIBRI20();
@@ -71,13 +60,96 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 
 	// Labels need to be added to the camera instead of the world
     camera->m_frontLayer->addChild(m_debugLabel);
+
+	/////////////////////////////////////////////////////////////////////
+	// CREATE OBJECT
+	/////////////////////////////////////////////////////////////////////
+
+	cMultiMesh *object = new cMultiMesh();
+	world->addChild(object);
+	
+	bool fileload;
+	std::string fileString = json.get("model", "ASCII").asString();
+	fileload = object->loadFromFile(fileString);
+	if (!fileload)
+	{
+	#if defined(_MSVC)
+		fileload = object->loadFromFile(fileString);
+	#endif
+	}
+	if (!fileload)
+	{
+		cout << "Error - 3D Model failed to load correctly" << endl;
+		close();
+		return (-1);
+	}
+	//ANCHOR
+
+	object->setWireMode(json.get("wireMode", "ASCII").asInt(), true);
+
+	cMaterial m;
+	m.setBlueCadet();
+	object->setMaterial(m);
+
+	// disable culling so that faces are rendered on both sides
+	object->setUseCulling(false);
+
+	// compute a boundary box
+	object->computeBoundaryBox(true);
+
+	// show/hide boundary box
+	object->setShowBoundaryBox(false);
+
+	// compute collision detection algorithm
+	object->createAABBCollisionDetector(toolRadius);
+
+	// define a default stiffness for the object
+	object->setStiffness(0.2 * maxStiffness, true);
+
+	// define some haptic friction properties
+	object->setFriction(json.get("staticFriction", "ASCII").asDouble(),
+	 json.get("dynamicFriction", "ASCII").asDouble(), true);
+
+	object->setShowEdges(json.get("wireMode", "ASCII").asInt());
+
+	// enable display list for faster graphic rendering
+	object->setUseDisplayList(true);
+
+	cVector3d position = object->getBoundaryCenter();
+	position.x(0);
+	position.y(-0.10);
+	position.z(-0.10);
+
+	// center object in scene
+	object->setLocalPos(position);
+
+	// rotate object in scene
+	//object->rotateExtrinsicEulerAnglesDeg(0, 0, 90, C_EULER_ORDER_XYZ);
+
+	// compute all edges of object for which adjacent triangles have more than 40 degree angle
+	object->computeAllEdges(0);
+
+	// set line width of edges and color
+	cColorf colorEdges;
+	colorEdges.setBlack();
+	object->setEdgeProperties(1, colorEdges);
+
+	// set normal properties for display
+	cColorf colorNormals;
+	colorNormals.setOrangeTomato();
+	object->setNormalsProperties(0.01, colorNormals);
+
+	// display options
+	object->setShowTriangles(json.get("showTriangles", "ASCII").asInt());
+	object->setShowNormals(json.get("showNormals", "ASCII").asInt());
+
 }
 
 void TemplateWorld::updateGraphics()
 {
 	std::stringstream ss;
 
-    ss << "You can add debug output like this: " << m_cursor->getLocalPos().length() * 1000.0
+    ss << "You can add debug output like this: " << tool->getLocalPos().length() * 1000.0
 		<< " mm (Distance from center)";
 
     m_debugLabel->setText(ss.str());
@@ -95,32 +167,36 @@ void TemplateWorld::updateHaptics(cGenericHapticDevice* hapticDevice, double tim
     // update global variable for graphic display update
     hapticDevicePosition = newPosition;
 
-	// Update position and orientation of cursor
-    m_cursor->setLocalPos(newPosition);
+	tool->setHapticDevice(hapticDevice);
 
-	// Read linear velocity from device
-	cVector3d linearVelocity;
-	hapticDevice->getLinearVelocity(linearVelocity);
+	// if the haptic device has a gripper, enable it as a user switch
+	hapticDevice->setEnableGripperUserSwitch(true);
 
-	// Update the line showing velocity
-    m_velocityVector->m_pointA = newPosition;
-    m_velocityVector->m_pointB = newPosition + linearVelocity;
+	// define the radius of the tool (sphere)
+	double toolRadius = 0.008;
 
-	// Read user button status
-	bool buttonStatus;
-	hapticDevice->getUserSwitch(0, buttonStatus);
+	// define a radius for the tool
+	tool->setRadius(toolRadius);
 
-	// Adjust the color of the cursor according to the status of
-	// the user switch (ON = TRUE / OFF = FALSE)
-    m_cursor->m_material = buttonStatus ? m_matCursorButtonON : m_matCursorButtonOFF;
+	// hide the device sphere. only show proxy.
+	tool->setShowContactPoints(true, false);
 
-	cVector3d force(0, 0, 0);
+	// create a white cursor
+	tool->m_hapticPoint->m_sphereProxy->m_material->setWhite();
 
-	//Pull towards center
-    force = -300.0f * newPosition;
+	// map the physical workspace of the haptic device to a larger virtual workspace.
+	tool->setWorkspaceRadius(0.1);
 
-	//Set a force to the haptic device
-	hapticDevice->setForce(force);
+	// oriente tool with camera
+	tool->setLocalRot(camera->getLocalRot());
+
+	// haptic forces are enabled only if small forces are first sent to the device;
+	// this mode avoids the force spike that occurs when the application starts when
+	// the tool is located inside an object for instance.
+	tool->setWaitForSmallForce(true);
+
+	// start the haptic tool
+	tool->start();
 }
 
 #endif

@@ -1,14 +1,30 @@
 {
-	"globen": {
-		"model": "models/GlobenFake.obj",
-		"height": 40,
-		"width": 40,
-		"length": 40
-	},
-	"screw": {
-		"model": "models/Screw.obj",
-		"height": 40,
-		"width": 40,
-		"length": 40
-	}
+	"config": [		
+		{
+			"name":"globen",
+			"model": "models/GlobenFake.obj",
+			"height": 40,
+			"width": 40,
+			"length": 40,
+			"wireMode": 0,
+			"showEdges": 0,
+			"staticFriction": 0.0,
+			"dynamicFriction": 0.0,
+			"showTriangles": 0,
+			"showNormals": 0
+		},
+		{
+			"name":"screw",
+			"model": "models/Screw.obj",
+			"height": 40,
+			"width": 40,
+			"length": 40,
+			"wireMode": 0,
+			"showEdges": 0,
+			"staticFriction": 0.0,
+			"dynamicFriction": 0.0,
+			"showTriangles": 0,
+			"showNormals": 0
+		}	
+	]
 }
