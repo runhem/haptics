@@ -15,7 +15,7 @@ CXX           = g++
 DEFINES       = -DLINUX
 CFLAGS        = -m64 -pipe -g -Wall -W -fPIC $(DEFINES)
 CXXFLAGS      = -m64 -pipe -std=c++0x -g -Wall -W -fPIC $(DEFINES)
-INCPATH       = -I. -I/opt/chai3d/3.2.0/src -I/opt/chai3d/3.2.0/external/Eigen -I/opt/chai3d/3.2.0/external/glew/include -I/opt/chai3d/3.2.0/extras/GLFW/include -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64
+INCPATH       = -I. -I/opt/chai3d/3.2.0/src -I/opt/chai3d/3.2.0/external/Eigen -I/opt/chai3d/3.2.0/external/glew/include -I/opt/chai3d/3.2.0/extras/GLFW/include -Iinclude/dist -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++-64
 QMAKE         = /usr/lib/x86_64-linux-gnu/qt5/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -36,7 +36,7 @@ DISTNAME      = project1.0.0
 DISTDIR = /afs/kth.se/home/h/e/henrikj7/git/haptics/Project/.tmp/project1.0.0
 LINK          = g++
 LFLAGS        = -m64
-LIBS          = $(SUBLIBS) -L/opt/chai3d/3.2.0/external/DHD/lib/lin-x86_64/ -L/opt/chai3d/3.2.0/build/extras/GLFW -L/opt/chai3d/3.2.0/build -lchai3d -ldrd -lpthread -lrt -ldl -lGL -lGLU -lusb-1.0 -lglfw -lX11 -lXcursor -lXrandr -lXinerama 
+LIBS          = $(SUBLIBS) -L/opt/chai3d/3.2.0/external/DHD/lib/lin-x86_64/ -L/opt/chai3d/3.2.0/build/extras/GLFW -L/opt/chai3d/3.2.0/build -lchai3d -ldrd -lpthread -lrt -ldl -lGL -lGLU -lusb-1.0 -lglfw -lX11 -lXcursor -lXrandr -lXinerama -ljsoncpp 
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -709,14 +709,9 @@ main.o: main.cpp /opt/chai3d/3.2.0/src/chai3d.h \
 		/opt/chai3d/3.2.0/src/resources/CShaderIsosurface-L8.h \
 		/opt/chai3d/3.2.0/src/resources/CShaderIsosurface-RGBA8.h \
 		/opt/chai3d/3.2.0/extras/GLFW/include/GLFW/glfw3.h \
+		include/dist/json/json.h \
 		Assignment.h \
-		TemplateWorld.h \
-		1_HelloWorld.h \
-		2_ReadDevicePosition.h \
-		3_BasicForceEffects.h \
-		4_HapticWall.h \
-		5_MagneticEffect.h \
-		6_HapticSphere.h
+		TemplateWorld.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
 
 ####### Install

@@ -252,9 +252,15 @@ int main(int argc, char* argv[])
     reader.parse(ifs, root);
     const Json::Value &configs = root["config"];
 
+    cout << "LOL" << endl;
+
+    cout << configs.size() << endl;
+
+    cout << "Creating templates" << endl;
     for(int i = 0; i < configs.size(); i = i + 1) {
         assignments.push_back(new TemplateWorld(configs[i]));
     }
+    cout << "Done creating templates" << endl;
 
 
 
@@ -262,6 +268,7 @@ int main(int argc, char* argv[])
     // OPEN GL - WINDOW DISPLAY
     //-----------------------------------------------------------------------
 
+    cout << "Starting openGL" << endl;
     // initialize GLFW library
     if (!glfwInit())
     {
@@ -333,42 +340,11 @@ int main(int argc, char* argv[])
     }
 #endif
 
-	//-----------------------------------------------------------------------
-	// HAPTIC DEVICES / TOOLS
-	//-----------------------------------------------------------------------
-
-    // Create a haptic device handler
-    handler = new cHapticDeviceHandler();
-
-    // get a handle to the first haptic device
-    handler->getDevice(hapticDevice, 0);
-
-    // open a connection to haptic device
-    hapticDevice->open();
-
-    // calibrate device (if necessary)
-    hapticDevice->calibrate();
-
-    // retrieve information about the current haptic device
-    cHapticDeviceInfo info = hapticDevice->getSpecifications();
-
-    // display a reference frame if haptic device supports orientations
-    if (info.m_sensedRotation == true)
-    {
-        // display reference frame
-        cursor->setShowFrame(true);
-
-        // set the size of the reference frame
-        cursor->setFrameSize(0.05);
-    }
-
-    // if the device has a gripper, enable the gripper to simulate a user switch
-    hapticDevice->setEnableGripperUserSwitch(true);
-
-
     //--------------------------------------------------------------------------
     // WORLD - CAMERA - LIGHTING
     //--------------------------------------------------------------------------
+
+    cout << "Creating worlds" << endl;
 
     // create a new world.
     world = new cWorld();
@@ -410,7 +386,42 @@ int main(int argc, char* argv[])
     // define direction of light beam
     light->setDir(-1.0, 0.0, 0.0);
 
+    cout << "Opengl done" << endl;
 
+    //-----------------------------------------------------------------------
+    // HAPTIC DEVICES / TOOLS
+    //-----------------------------------------------------------------------
+
+    cout << "Configuring haptic device" << endl;
+    // Create a haptic device handler
+    handler = new cHapticDeviceHandler();
+
+    // get a handle to the first haptic device
+    handler->getDevice(hapticDevice, 0);
+
+    // open a connection to haptic device
+    hapticDevice->open();
+
+    // calibrate device (if necessary)
+    hapticDevice->calibrate();
+
+    // retrieve information about the current haptic device
+    cHapticDeviceInfo info = hapticDevice->getSpecifications();
+
+    // display a reference frame if haptic device supports orientations
+    if (info.m_sensedRotation == true)
+    {
+        // display reference frame
+        cursor->setShowFrame(true);
+
+        // set the size of the reference frame
+        cursor->setFrameSize(0.05);
+    }
+
+    // if the device has a gripper, enable the gripper to simulate a user switch
+    hapticDevice->setEnableGripperUserSwitch(true);
+
+    cout << "Done Configuring haptic device" << endl;
 
 
     //--------------------------------------------------------------------------
@@ -434,13 +445,15 @@ int main(int argc, char* argv[])
     labelRates = new cLabel(font);
     camera->m_frontLayer->addChild(labelRates);
 
-
+    cout << "Done creating worlds" << endl;
 
     //-----------------------------------------------------------------------
 	// START SIMULATION
 	//-----------------------------------------------------------------------
 	// Initialize the world with assignment 0
+    cout << "Starting first simulation" << endl;
 	reset(0);
+    cout << "Done starting first simulation" << endl;
 
 	// Simulation in now running
 	simulationRunning = true;
@@ -460,24 +473,41 @@ int main(int argc, char* argv[])
     // call window size callback at initialization
     windowSizeCallback(window, width, height);
 
+    cout << glfwWindowShouldClose(window) << endl;
+
     // main graphic loop
     while (!glfwWindowShouldClose(window))
     {
+        cout << "Graphic loop" << endl;
+
         // get width and height of window
         glfwGetWindowSize(window, &width, &height);
+
+        cout << "1" << endl;
 
         // render graphics
         updateGraphics();
 
+        cout << "2" << endl;
+
         // swap buffers
         glfwSwapBuffers(window);
+
+        cout << "3" << endl;
 
         // process events
         glfwPollEvents();
 
+        cout << "4" << endl;
+
         // signal frequency counter
         freqCounterGraphics.signal(1);
+
+        cout << "5" << endl;
     }
+
+    cout << glfwWindowShouldClose(window) << endl;
+
 
     // close window
     glfwDestroyWindow(window);
@@ -667,45 +697,34 @@ void updateGraphics(void)
     // UPDATE WIDGETS
     /////////////////////////////////////////////////////////////////////
 
+    cout << "graphics before assignment" << endl;
 
-
-    if (assignments[currentAssignment]->isInitialized()){
-		assignments[currentAssignment]->updateGraphics();
+    //if (assignments.at(currentAssignment)->isInitialized()){
+    //    assignments.at(currentAssignment)->updateGraphics();
 
         // update position display (using global variable set in haptic loop)
         //labelHapticDevicePosition->setText(assignments[currentAssignment]->hapticDevicePosition.str(3));
         //position = position * 1000.0; // Convert to mm
         //sprintf(buffer, "Device position: (%.2lf, %.2lf, %.2lf) mm", position.x(), position.y(), position.z());
-    }
+    //}
+
+    cout << "graphics after assignments" << endl;
 
 
-
-    // update haptic and graphic rate data
-    rateLabel->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-                        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
-
-    // update position of label
-    rateLabel->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
-
-    /*
-	// Update the label with the haptic refresh rate
-	char buffer[128];
-	sprintf(buffer, "Haptic rate: %.0lf Hz", rateEstimate);
-    rateLabel->setString(buffer);
-    rateLabel->setLocalPos(displayW - 120, 8, 0);
-*/
-
-    assignmentLabel->setLocalPos(0.5 * (displayW - assignmentLabelWidth), displayH - 20, 0);
 
     /////////////////////////////////////////////////////////////////////
     // RENDER SCENE
     /////////////////////////////////////////////////////////////////////
+
+    cout << "Before render" << endl;
 
     // update shadow maps (if any)
     world->updateShadowMaps(false, mirroredDisplay);
 
     // render world
     camera->renderView(width, height);
+
+    cout << "After render" << endl;
 
     // wait until all OpenGL commands are completed
     glFinish();
@@ -718,123 +737,47 @@ void updateGraphics(void)
 
 //---------------------------------------------------------------------------
 
-enum cMode
-{
-    IDLE,
-    SELECTION
-};
-
 void updateHaptics(void)
 {
-    cMode state = IDLE;
-    cGenericObject *selectedObject = NULL;
-    cTransform tool_T_object;
+    // A clock to estimate the haptic simulation loop update rate
+    cPrecisionClock pclock;
+    pclock.setTimeoutPeriodSeconds(1.0);
+    pclock.start(true);
+    int counter = 0;
+    cPrecisionClock frameClock;
+    frameClock.start(true);
 
-    // simulation in now running
-    simulationRunning = true;
-    simulationFinished = false;
-
-    // main haptic simulation loop
+    // Main haptic simulation loop
     while (simulationRunning)
     {
-        /////////////////////////////////////////////////////////////////////////
-        // HAPTIC RENDERING
-        /////////////////////////////////////////////////////////////////////////
+        if (!hapticDevice)
+            continue;
 
-        // signal frequency counter
-        freqCounterHaptics.signal(1);
+        // Total time elapsed since the current assignment started
+        double totalTime = clockTotal.getCurrentTimeSeconds();
 
-        // compute global reference frames for each object
-        world->computeGlobalPositions(true);
+        // Time elapsed since the previous haptic frame
+        double timeStep = frameClock.getCurrentTimeSeconds();
+        frameClock.start(true);
 
-        // update position and orientation of tool
-        tool->updateFromDevice();
+        // Update assignment
+        if (assignments[currentAssignment]->isInitialized())
+            assignments[currentAssignment]->updateHaptics(hapticDevice.get(), timeStep, totalTime);
 
-        // compute interaction forces
-        tool->computeInteractionForces();
-
-        /////////////////////////////////////////////////////////////////////////
-        // MANIPULATION
-        /////////////////////////////////////////////////////////////////////////
-
-        // compute transformation from world to tool (haptic device)
-        cTransform world_T_tool = tool->getDeviceGlobalTransform();
-
-        // get status of user switch
-        bool button = tool->getUserSwitch(0);
-
-        //
-        // STATE 1:
-        // Idle mode - user presses the user switch
-        //
-        if ((state == IDLE) && (button == true))
-        {
-            // check if at least one contact has occurred
-            if (tool->m_hapticPoint->getNumCollisionEvents() > 0)
-            {
-                // get contact event
-                cCollisionEvent *collisionEvent = tool->m_hapticPoint->getCollisionEvent(0);
-
-                // get object from contact event
-                selectedObject = collisionEvent->m_object;
-            }
-            else
-            {
-                //selectedObject = currentObject;
-            }
-
-            // get transformation from object
-            cTransform world_T_object = selectedObject->getGlobalTransform();
-
-            // compute inverse transformation from contact point to object
-            cTransform tool_T_world = world_T_tool;
-            tool_T_world.invert();
-
-            // store current transformation tool
-            tool_T_object = tool_T_world * world_T_object;
-
-            // update state
-            state = SELECTION;
+        // Estimate the refresh rate
+        ++counter;
+        if (pclock.timeoutOccurred()) {
+            pclock.stop();
+            rateEstimate = counter;
+            counter = 0;
+            pclock.start(true);
         }
+    }
 
-        //
-        // STATE 2:
-        // Selection mode - operator maintains user switch enabled and moves object
-        //
-        else if ((state == SELECTION) && (button == true))
-        {
-            // compute new transformation of object in global coordinates
-            cTransform world_T_object = world_T_tool * tool_T_object;
+    // Exit haptics thread
+    simulationFinished = true;
 
-            // compute new transformation of object in local coordinates
-            cTransform parent_T_world = selectedObject->getParent()->getLocalTransform();
-            parent_T_world.invert();
-            cTransform parent_T_object = parent_T_world * world_T_object;
 
-            // assign new local transformation to object
-            selectedObject->setLocalTransform(parent_T_object);
-
-            // set zero forces when manipulating objects
-            tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
-
-            tool->initialize();
-        }
-
-        //
-        // STATE 3:
-        // Finalize Selection mode - operator releases user switch.
-        //
-        else
-        {
-            state = IDLE;
-        }
-
-        /////////////////////////////////////////////////////////////////////////
-        // FINALIZE
-        /////////////////////////////////////////////////////////////////////////
-
-        // send forces to haptic device
-        tool->applyToDevice();
 }
 
 //---------------------------------------------------------------------------

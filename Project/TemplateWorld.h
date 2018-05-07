@@ -5,50 +5,70 @@
 #include "chai3d.h"
 #include <json/json.h>
 
+using namespace chai3d;
+using namespace std;
+
+
+
 class TemplateWorld : public Assignment
 {
 private:
     // A 3D cursor for the haptic device
-    cShapeSphere* tool;
+    cToolCursor* tool;
 
-	Json::Value json;
-	cMultiMesh *object;
+    Json::Value json;
+    cMultiMesh *object;
+    cCamera *camera;
+    cWorld *world;
+    bool simulationRunning = false;
+    bool simulationFinished = true;
 
-	// A line to display velocity of the haptic interface
-	cShapeLine *m_velocityVector;
+    // A line to display velocity of the haptic interface
+    cShapeLine *m_velocityVector;
 
-	// Material properties used to render the color of the cursors
+    // Material properties used to render the color of the cursors
     cMaterialPtr m_matCursorButtonON;
     cMaterialPtr m_matCursorButtonOFF;
 
+    cFrequencyCounter freqCounterHaptics;
+
 	// A label used to demonstrate debug output
     cLabel* m_debugLabel;
+
+    // stifness properties
+    double maxStiffness;
 
 public:
 	TemplateWorld(Json::Value modelJson) {
 		json = modelJson;
 	}
-    virtual std::string getName() const { return json.get("name", "ASCII"); }
+    virtual string getName() const { return json.get("name", "ASCII").asString(); }
 
 	virtual void initialize(cWorld* world, cCamera* camera);
 
 	virtual void updateGraphics();
-	virtual void updateHaptics(cGenericHapticDevice* hapticDevice, double timeStep, double totalTime);
+        virtual void updateHaptics(cGenericHapticDevice* hapticDevice, double timeStep, double totalTime);
 };
 
 void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 {
-	//Change the background
-	world->setBackgroundColor(0.0f, 1.0f, 0.0f);
+    world = world;
+    camera = camera;
 
-	// Create a cursor with its radius set
-	tool = new cToolCursor(world);
-	// Add cursor to the world
-	world->addChild(tool);
+    //Change the background
+    world->setBackgroundColor(0.0f, 1.0f, 0.0f);
 
-	// Create a small line to illustrate velocity
+    // Create a cursor with its radius set
+    tool = new cToolCursor(world);
+
+    double toolRadius = 0.008;
+    // Add cursor to the world
+    world->addChild(tool);
+
+    // Create a small line to illustrate velocity
     m_velocityVector = new cShapeLine(cVector3d(0, 0, 0), cVector3d(0, 0, 0));
-	// Add line to the world
+
+    // Add line to the world
     world->addChild(m_velocityVector);
 
 
@@ -69,7 +89,7 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 	world->addChild(object);
 	
 	bool fileload;
-	std::string fileString = json.get("model", "ASCII").asString();
+        string fileString = json.get("model", "ASCII").asString();
 	fileload = object->loadFromFile(fileString);
 	if (!fileload)
 	{
@@ -80,8 +100,7 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 	if (!fileload)
 	{
 		cout << "Error - 3D Model failed to load correctly" << endl;
-		close();
-		return (-1);
+                return;
 	}
 	//ANCHOR
 
@@ -104,7 +123,7 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 	object->createAABBCollisionDetector(toolRadius);
 
 	// define a default stiffness for the object
-	object->setStiffness(0.2 * maxStiffness, true);
+        object->setStiffness(0.2 * maxStiffness, true);
 
 	// define some haptic friction properties
 	object->setFriction(json.get("staticFriction", "ASCII").asDouble(),
@@ -143,11 +162,15 @@ void TemplateWorld::initialize(cWorld* world, cCamera* camera)
 	object->setShowTriangles(json.get("showTriangles", "ASCII").asInt());
 	object->setShowNormals(json.get("showNormals", "ASCII").asInt());
 
+        cout << "Assignment initialized" << endl;
+
 }
 
 void TemplateWorld::updateGraphics()
 {
-	std::stringstream ss;
+    cout << "Template ug" << endl;
+
+    stringstream ss;
 
     ss << "You can add debug output like this: " << tool->getLocalPos().length() * 1000.0
 		<< " mm (Distance from center)";
@@ -156,7 +179,15 @@ void TemplateWorld::updateGraphics()
 
 	// Position the label
     m_debugLabel->setLocalPos(30, 150, 0);
+    cout << "Template ug done" << endl;
 }
+
+
+enum cMode
+{
+    IDLE,
+    SELECTION
+};
 
 void TemplateWorld::updateHaptics(cGenericHapticDevice* hapticDevice, double timeStep, double totalTime)
 {
@@ -164,10 +195,16 @@ void TemplateWorld::updateHaptics(cGenericHapticDevice* hapticDevice, double tim
 	cVector3d newPosition;
 	hapticDevice->getPosition(newPosition);
 
-    // update global variable for graphic display update
-    hapticDevicePosition = newPosition;
+        // update global variable for graphic display update
+        hapticDevicePosition = newPosition;
 
-	tool->setHapticDevice(hapticDevice);
+        //tool->setHapticDevice(hapticDevice);
+
+
+        double workspaceScaleFactor = tool->getWorkspaceScaleFactor();
+        cHapticDeviceInfo info = hapticDevice->getSpecifications();
+        maxStiffness = info.m_maxLinearStiffness / workspaceScaleFactor;
+
 
 	// if the haptic device has a gripper, enable it as a user switch
 	hapticDevice->setEnableGripperUserSwitch(true);
@@ -196,7 +233,113 @@ void TemplateWorld::updateHaptics(cGenericHapticDevice* hapticDevice, double tim
 	tool->setWaitForSmallForce(true);
 
 	// start the haptic tool
-	tool->start();
+        tool->start();        // Total time elapsed since the current assignment started
+
+
+        cMode state = IDLE;
+        cGenericObject *selectedObject = NULL;
+        cTransform tool_T_object;
+
+        // main haptic simulation loop
+            /////////////////////////////////////////////////////////////////////////
+            // HAPTIC RENDERING
+            /////////////////////////////////////////////////////////////////////////
+
+            // signal frequency counter
+            freqCounterHaptics.signal(1);
+
+            // compute global reference frames for each object
+            world->computeGlobalPositions(true);
+
+            // update position and orientation of tool
+            tool->updateFromDevice();
+
+            // compute interaction forces
+            tool->computeInteractionForces();
+
+            /////////////////////////////////////////////////////////////////////////
+            // MANIPULATION
+            /////////////////////////////////////////////////////////////////////////
+
+            // compute transformation from world to tool (haptic device)
+            cTransform world_T_tool = tool->getDeviceGlobalTransform();
+
+            // get status of user switch
+            bool button = tool->getUserSwitch(0);
+
+            //
+            // STATE 1:
+            // Idle mode - user presses the user switch
+            //
+            if ((state == IDLE) && (button == true))
+            {
+                // check if at least one contact has occurred
+                if (tool->m_hapticPoint->getNumCollisionEvents() > 0)
+                {
+                    // get contact event
+                    cCollisionEvent *collisionEvent = tool->m_hapticPoint->getCollisionEvent(0);
+
+                    // get object from contact event
+                    selectedObject = collisionEvent->m_object;
+                }
+                else
+                {
+                    //selectedObject = currentObject;
+                }
+
+                // get transformation from object
+                cTransform world_T_object = selectedObject->getGlobalTransform();
+
+                // compute inverse transformation from contact point to object
+                cTransform tool_T_world = world_T_tool;
+                tool_T_world.invert();
+
+                // store current transformation tool
+                tool_T_object = tool_T_world * world_T_object;
+
+                // update state
+                state = SELECTION;
+            }
+
+            //
+            // STATE 2:
+            // Selection mode - operator maintains user switch enabled and moves object
+            //
+            else if ((state == SELECTION) && (button == true))
+            {
+                // compute new transformation of object in global coordinates
+                cTransform world_T_object = world_T_tool * tool_T_object;
+
+                // compute new transformation of object in local coordinates
+                cTransform parent_T_world = selectedObject->getParent()->getLocalTransform();
+                parent_T_world.invert();
+                cTransform parent_T_object = parent_T_world * world_T_object;
+
+                // assign new local transformation to object
+                selectedObject->setLocalTransform(parent_T_object);
+
+                // set zero forces when manipulating objects
+                tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
+
+                tool->initialize();
+            }
+
+            //
+            // STATE 3:
+            // Finalize Selection mode - operator releases user switch.
+            //
+            else
+            {
+                state = IDLE;
+            }
+
+            /////////////////////////////////////////////////////////////////////////
+            // FINALIZE
+            /////////////////////////////////////////////////////////////////////////
+
+            // send forces to haptic device
+            tool->applyToDevice();
+
 }
 
 #endif
