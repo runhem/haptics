@@ -13,7 +13,11 @@
 #include "chai3d.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
-#include <vector>
+#include <json/json.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <iostream>
+#include <fstream>
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -30,6 +34,14 @@ using namespace std;
     C_STEREO_PASSIVE_LEFT_RIGHT:  Passive stereo where L/R images are rendered next to each other
     C_STEREO_PASSIVE_TOP_BOTTOM:  Passive stereo where L/R images are rendered above each other
 */
+
+// ============ MODEL =====================
+
+string model = "globen";
+
+// =========================================
+
+
 cStereoMode stereoMode = C_STEREO_DISABLED;
 
 // fullscreen mode
@@ -43,6 +55,10 @@ bool mirroredDisplay = false;
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
 
+
+Json::Value config;
+
+
 // a world that contains all objects of the virtual environment
 cWorld* world;
 
@@ -53,10 +69,7 @@ cCamera* camera;
 cDirectionalLight *light;
 
 // a virtual object
-vector<cMultiMesh*> objects;
 cMultiMesh* object;
-
-cMesh* texturePlane;
 
 // a haptic device handler
 cHapticDeviceHandler* handler;
@@ -195,6 +208,14 @@ int main(int argc, char* argv[])
 
     // parse first arg to try and locate resources
     resourceRoot = string(argv[0]).substr(0,string(argv[0]).find_last_of("/\\")+1);
+
+
+    // JSON
+    ifstream ifs("./config.json");
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(ifs, root);
+    config = root[model];
 
 
     //--------------------------------------------------------------------------
@@ -401,27 +422,19 @@ int main(int argc, char* argv[])
 
     // create a virtual mesh
     object = new cMultiMesh();
-    objects.push_back(object);
-
-    /*
-    for(int i = 0; i < objects.size; i++) {
-        world->addChild(objects[i]);
-    }*/
 
     world->addChild(object);
 
-
-    // add object to world
-    //world->addChild(object);
-    //world->addChild(screw);
+    string modelPath = config.get("model", "UTF-8").asString();
+    cout << modelPath << endl;
 
     // load an object file
     bool fileload;
-    fileload = object->loadFromFile("GlobenFake2.obj");
+    fileload = object->loadFromFile(modelPath);
     if(!fileload)
     {
         #if defined(_MSVC)
-        fileload = object->loadFromFile("GlobenFake2.obj");
+        fileload = object->loadFromFile(modelPath);
         #endif
     }
     if (!fileload)
@@ -440,59 +453,14 @@ int main(int argc, char* argv[])
     // resize object to screen
     if (size > 0.001)
     {
-        object->scale(1.0 / size);
+        object->scale(1.0 / size)cMesh* texturePlane;
+;
     }
 */
-    /*
-    //MESH
-    texturePlane = new cMesh();
-
-
-    cCreatePlane(texturePlane, 0.3, 0.3);
-
-    // create collision detector
-    texturePlane->createAABBCollisionDetector(toolRadius);
-
-    // add object to world
-    world->addChild(texturePlane);
-
-    texturePlane->m_texture = cTexture2d::create();
-    bool fileload3;
-    fileload3 = texturePlane->m_texture->loadFromFile("test.jpg");
-        if (!fileload3)
-        {
-            #if defined(_MSVC)
-            fileload3 = texturePlane->m_texture->loadFromFile("test.jpg");
-            #endif
-        }
-        if (!fileload3)
-        {
-            cout << "Error - Texture image failed to load correctly." << endl;
-            close();
-            return (-1);
-        }
-    // enable texture mapping
-    texturePlane->setUseTexture(true);
-    texturePlane->m_material->setWhite();
-
-    // create normal map from texture data
-    cNormalMapPtr normalMap0 = cNormalMap::create();
-    normalMap0->createMap(texturePlane->m_texture);
-    texturePlane->m_normalMap = normalMap0;
-
-    // set haptic properties
-    texturePlane->m_material->setStiffness(0.8 * maxStiffness);
-    texturePlane->m_material->setStaticFriction(0.3);
-    texturePlane->m_material->setDynamicFriction(0.2);
-    texturePlane->m_material->setTextureLevel(1.0);
-    texturePlane->m_material->setHapticTriangleSides(true, false);
-
-    */
-
 
     //ANCHOR
 
-    object->setWireMode(false, true);
+    object->setWireMode(config.get("wireMode", "ASCII").asInt(), true);
 
     cMaterial m;
     m.setBlueCadet();
@@ -514,9 +482,8 @@ int main(int argc, char* argv[])
     object->setStiffness(0.2 * maxStiffness, true);
 
     // define some haptic friction properties
-    object->setFriction(0.0, 0.0, true);
+    object->setFriction(config.get("staticFriction", "ASCII").asDouble(), config.get("dynamicFriction", "ASCII").asDouble(), true);
 
-    object->setShowEdges(false);
 
     // enable display list for faster graphic rendering
     object->setUseDisplayList(true);
@@ -549,9 +516,9 @@ int main(int argc, char* argv[])
     object->setNormalsProperties(0.01, colorNormals);
 
     // display options
-    object->setShowTriangles(showTriangles);
-    object->setShowEdges(showEdges);
-    object->setShowNormals(showNormals);
+    object->setShowTriangles(config.get("showTriangles", "ASCII").asInt());
+    object->setShowEdges(config.get("showEdges", "ASCII").asInt());
+    object->setShowNormals(config.get("showNormals", "ASCII").asInt());
 
 
     //--------------------------------------------------------------------------
@@ -920,7 +887,7 @@ void updateHaptics(void)
             selectedObject->setLocalTransform(parent_T_object);
 
             // set zero forces when manipulating objects
-            tool->setDeviceGlobalForce(0.0, 0.0, 0.0);
+            tool->setDeviceGlobalForce(config.get("forceX", "UTF-8").asDouble(), config.get("forceY", "UTF-8").asDouble(), config.get("forceZ", "UTF-8").asDouble());
 
             tool->initialize();
         }
