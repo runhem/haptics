@@ -1,4 +1,5 @@
 {
+	"current": "globen",
 	"globen": {
 		"name": "globen",
 		"model": "./models/GlobenReal.obj",
@@ -13,11 +14,11 @@
 		"showNormals": 0,
 		"forceX": 0.0,
 		"forceY": 0.0,
-		"forceZ": -10.0
+		"forceZ": -5.0
 	},
 	"screw": {
 		"name": "screw",
-		"model": "models/screw.obj",
+		"model": "./models/Screw.obj",
 		"height": 40,
 		"width": 40,
 		"length": 40,

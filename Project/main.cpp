@@ -35,12 +35,6 @@ using namespace std;
     C_STEREO_PASSIVE_TOP_BOTTOM:  Passive stereo where L/R images are rendered above each other
 */
 
-// ============ MODEL =====================
-
-string model = "globen";
-
-// =========================================
-
 
 cStereoMode stereoMode = C_STEREO_DISABLED;
 
@@ -55,6 +49,7 @@ bool mirroredDisplay = false;
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
 
+string model;
 
 Json::Value config;
 
@@ -215,6 +210,7 @@ int main(int argc, char* argv[])
     Json::Reader reader;
     Json::Value root;
     reader.parse(ifs, root);
+    model = root.get("current", "UTF-8").asString();
     config = root[model];
 
 
