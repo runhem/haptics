@@ -1,5 +1,5 @@
 {
-	"current": "globen",
+	"current": "screw",
 	"globen": {
 		"name": "globen",
 		"model": "./models/GlobenReal.obj",
@@ -26,7 +26,7 @@
 		"showEdges": 0,
 		"staticFriction": 0.0,
 		"dynamicFriction": 0.0,
-		"showTriangles": 0,
+		"showTriangles": 1,
 		"showNormals": 0,
 		"forceX": 0.0,
 		"forceY": 0.0,
