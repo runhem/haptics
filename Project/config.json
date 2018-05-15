@@ -1,5 +1,5 @@
 {
-	"current": "screw",
+	"current": "torso",
 	"globen": {
 		"name": "globen",
 		"model": "./models/GlobenReal.obj",
@@ -14,7 +14,7 @@
 		"showNormals": 0,
 		"forceX": 0.0,
 		"forceY": 0.0,
-		"forceZ": -5.0
+		"forceZ": 0.0
 	},
 	"screw": {
 		"name": "screw",
@@ -31,5 +31,102 @@
 		"forceX": 0.0,
 		"forceY": 0.0,
 		"forceZ": 0.0
+	},
+	"opera": {
+		"name": "opera",
+		"model": "./models/Sydney1.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": -5.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": 0.0
+	},
+	"empire": {
+		"name": "empire",
+		"model": "./models/Empire1.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": 0.0
+	},
+	"torso": {
+		"name": "torso",
+		"model": "./models/Torso1.obj",
+		"height": 40,
+		"width": 40,
+		"length": 40,
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": 0.0
+	},
+	"1": {
+		"name": "1",
+		"model": "./models/GlobenReal.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": -7.0
+	}
+	,
+	"2": {
+		"name": "2",
+		"model": "./models/GlobenReal.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": -4.0
+	}
+	,
+	"3": {
+		"name": "3",
+		"model": "./models/GlobenReal.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": -2.0
+	}
+	,
+	"4": {
+		"name": "4",
+		"model": "./models/GlobenReal.obj",
+		"wireMode": 0,
+		"showEdges": 0,
+		"staticFriction": 0.0,
+		"dynamicFriction": 0.0,
+		"showTriangles": 1,
+		"showNormals": 0,
+		"forceX": 0.0,
+		"forceY": 0.0,
+		"forceZ": -10.0
 	}
 }
